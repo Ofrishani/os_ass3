@@ -24,7 +24,7 @@
 #define min(a, b) ((a) < (b) ? (a) : (b))
 // there should be one superblock per disk device, but we run with
 // only one device
-struct superblock sb; 
+struct superblock sb;
 
 // Read the super block.
 static void
@@ -180,7 +180,7 @@ void
 iinit()
 {
   int i = 0;
-  
+
   initlock(&itable.lock, "itable");
   for(i = 0; i < NINODE; i++) {
     initsleeplock(&itable.inode[i].lock, "inode");
@@ -498,6 +498,7 @@ writei(struct inode *ip, int user_src, uint64 src, uint off, uint n)
     bp = bread(ip->dev, bmap(ip, off/BSIZE));
     m = min(n - tot, BSIZE - off%BSIZE);
     if(either_copyin(bp->data + (off % BSIZE), user_src, src, m) == -1) {
+
       brelse(bp);
       break;
     }
@@ -775,7 +776,7 @@ createSwapFile(struct proc* p)
   itoa(p->pid, path+ 6);
 
   begin_op();
-  
+
   struct inode * in = create(path, T_FILE, 0, 0);
   iunlock(in);
   p->swapFile = filealloc();

@@ -173,17 +173,26 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
     panic("uvmunmap: not aligned");
 
   for(a = va; a < va + npages*PGSIZE; a += PGSIZE){
-    if((pte = walk(pagetable, a, 0)) == 0)
-      panic("uvmunmap: walk");
-    if((*pte & PTE_V) == 0)
-      panic("uvmunmap: not mapped");
-    if(PTE_FLAGS(*pte) == PTE_V)
-      panic("uvmunmap: not a leaf");
-    if(do_free){
-      uint64 pa = PTE2PA(*pte);
-      kfree((void*)pa);
+    //change
+    if((pte = walk(pagetable, a, 0)) != 0) {
+      if((*pte & PTE_V) != 0) {
+        if(PTE_FLAGS(*pte) == PTE_V)
+          panic("uvmunmap: not a leaf");
+
+
+        if(do_free){
+          uint64 pa = PTE2PA(*pte);
+          kfree((void*)pa);
+        }
+    //   panic("uvmunmap: walk");
+    // if((*pte & PTE_V) == 0)
+    //   panic("uvmunmap: not mapped");
+    // if(PTE_FLAGS(*pte) == PTE_V)
+    //   panic("uvmunmap: not a leaf");
+      }
     }
     *pte = 0;
+
   }
 }
 
@@ -459,5 +468,22 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
     return 0;
   } else {
     return -1;
+  }
+}
+
+
+//task 1
+//this function copies from src process to dst process the
+//files_in_swap array and files_in_physicalmem array which are in charge of memory management
+void copy_memory_arrays(struct proc* src, struct proc* dst){
+  for(int i = 0; i < MAX_TOTAL_PAGES; i++){
+    dst->files_in_swap[i] = src->files_in_swap[i];
+  }
+  for(int i = 0; i < MAX_PSYC_PAGES; i++){
+    dst->files_in_physicalmem[i] = src->files_in_physicalmem[i];
+    //if the page is in physical memory we want to copy the PTE (to have access to the physical address)
+    if(dst->files_in_physicalmem[i].isAvailable == 0){
+      dst->files_in_physicalmem[i].page = walk(dst->pagetable, dst->files_in_physicalmem[i].va, 0);
+    }
   }
 }
