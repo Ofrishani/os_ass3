@@ -15,7 +15,7 @@ extern char trampoline[], uservec[], userret[];
 void kernelvec();
 
 extern int devintr();
-extern void hanle_page_fault();
+extern void hanle_page_fault(struct proc* p);
 
 void
 trapinit(void)
@@ -67,7 +67,9 @@ usertrap(void)
 
     syscall();
   } else if(r_scause() == 12 || r_scause() == 13 || r_scause() == 15) {
-    hanle_page_fault();
+    // 12: page fault caused by an instruction, 13: page fault caused by a read, 15: page fault cause by a write
+    printf("before handke page fault, r_scause: %d\n", r_scause());
+    hanle_page_fault(p);
 
   } else if((which_dev = devintr()) != 0){
     // ok

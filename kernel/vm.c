@@ -237,6 +237,7 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
     return oldsz;
 
   oldsz = PGROUNDUP(oldsz);
+  int counter = 0;
   for(a = oldsz; a < newsz; a += PGSIZE){
     //OH minute 22
     //check if current process has more pages to give (out of the 32 it has)
@@ -266,17 +267,15 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
     //   }
     // }
     uint64 new_page = walkaddr(pagetable, a);
-    if (add_page_to_phys((pte_t *)new_page, a) == -1) {
-      free_page_from_phys();
-      int added = add_page_to_phys((pte_t *)new_page, a);
-      if (added == -1){
+    if (add_page_to_phys(p, (pte_t *)new_page, a) == -1) {
+
         printf("ERROR ERROR\n");
         //TODO maybe kill process
-      }
     }
-      //if not - free space
-
-    //add page to phys memory
+    printf("in uvmalloc, pid:%d, counter: %d\n", p->pid,counter);
+    print_page_array(p, p->files_in_physicalmem);
+    print_page_array(p, p->files_in_swap);
+    counter++;
   }
   return newsz;
 }

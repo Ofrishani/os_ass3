@@ -128,11 +128,12 @@ struct proc {
 
 };
 
-int add_page_to_phys(uint64* page, uint64 va);
-int remove_page_from_phys(int index);
-int add_page_to_swapfile_array(uint64* page, uint64 va, int offset);
-int delete_page_from_file_arr(int index);
-int free_page_from_phys(void);
-int swap_to_swapFile(pte_t *page, int ndx);
+int add_page_to_phys(struct proc *p, uint64* page, uint64 va);
+int remove_page_from_phys(struct proc* p, int index);
+int add_page_to_swapfile_array(struct proc* p, uint64* page, uint64 va, int offset);
+int delete_page_from_file_arr(struct proc* p, int index);
+int free_page_from_phys(struct proc* p);
+int swap_to_swapFile(struct proc *p, pte_t *page, int ndx);
 int copy_file(struct proc* dest, struct proc* source);
 // void copy_memory_arrays(struct proc* src, struct proc* dst);
+void print_page_array(struct proc* p, struct page_struct* pagearr);

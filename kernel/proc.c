@@ -32,6 +32,11 @@ extern char trampoline[]; // trampoline.S
 // must be acquired before any p->lock.
 struct spinlock wait_lock;
 
+
+
+//task 1
+int ndx;
+
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
 // guard page.
@@ -150,6 +155,7 @@ found:
   //task 1
   // if (p->name != "shell" && p->name != "init") {
     struct page_struct *pa_swap;
+    printf("allocproc, p->pid: %d, p->files_in_swap: %d\n", p->pid, p->files_in_swap);
     for(pa_swap = p->files_in_swap; pa_swap < &p->files_in_swap[MAX_PSYC_PAGES] ; pa_swap++) {
       pa_swap->isAvailable = 1;
       // pa_swap->isUsed = 0;
@@ -158,7 +164,9 @@ found:
     }
 
       struct page_struct *pa_psyc;
-    for(pa_psyc = p->files_in_swap; pa_psyc < &p->files_in_physicalmem[MAX_PSYC_PAGES] ; pa_psyc++) {
+    printf("@@@@@@allocproc, p->pid: %d, p->files_in_physicalmem: %d\n", p->pid, p->files_in_physicalmem);
+
+    for(pa_psyc = p->files_in_physicalmem; pa_psyc < &p->files_in_physicalmem[MAX_PSYC_PAGES] ; pa_psyc++) {
       pa_psyc->isAvailable = 1;
       // pa_psyc->isUsed = 0;
       pa_psyc->va = -1;
@@ -166,6 +174,15 @@ found:
     }
     p->num_of_pages = 0;    //in the beginning there aren't any pages in process virtual memory
   // }
+  //TESTING
+  // if((p->pid != 0) && (p->pid != 1)){
+  //   printf("In allocproc, files in phys:\n");
+  // print_page_array(p->files_in_physicalmem);
+  // printf("filess in swap:\n");
+  // print_page_array(p->files_in_swap);
+  // }
+
+
   return p;
 }
 
@@ -717,24 +734,29 @@ procdump(void)
  }
 
  //return 0 on success, return -1 on failure
- int add_page_to_phys(uint64* page, uint64 va) {
-   struct proc *p = myproc();
+ int add_page_to_phys(struct proc* p, uint64* page, uint64 va) {
+  //  struct proc *p = myproc();
    int index = find_free_index(p->files_in_physicalmem);
    if (index == -1) {
-     return -1; //cannot add page
+    free_page_from_phys(p);
+    index = find_free_index(p->files_in_physicalmem);
+     if (index == -1)
+      return -1; //cannot add page
    } else {
      p->files_in_physicalmem[index].isAvailable = 0;
      p->files_in_physicalmem[index].page = page;
      p->files_in_physicalmem[index].va = va;
-     printf("page index: %d , va in add: %d\n",index, va);
+    //  printf("page index: %d , va in add: %d\n",index, va);
      p->files_in_physicalmem[index].offset = -1;   //offset is a field for files in swap_file only
+    p->num_of_pages++;
+    p->num_of_pages_in_phys++;
    }
    return 0;
  }
 
 //removes page from the array
- int remove_page_from_phys(int index) {
-   struct proc *p = myproc();
+ int remove_page_from_phys(struct proc* p, int index) {
+  //  struct proc *p = myproc();
     p->files_in_physicalmem[index].isAvailable = 1;
     p->files_in_physicalmem[index].page = 0;
     p->files_in_physicalmem[index].va = -1;
@@ -742,8 +764,8 @@ procdump(void)
     return 0;
  }
 
- int add_page_to_swapfile_array(uint64* page, uint64 va, int offset) {
-   struct proc *p = myproc();
+ int add_page_to_swapfile_array(struct proc* p, uint64* page, uint64 va, int offset) {
+  //  struct proc *p = myproc();
    int index = find_free_index(p->files_in_swap);
    if (index == -1) {
      return -1; //cannot add page
@@ -756,8 +778,8 @@ procdump(void)
    return 0;
  }
 
- int delete_page_from_file_arr(int index) {
-   struct proc *p = myproc();
+ int delete_page_from_file_arr(struct proc* p, int index) {
+  //  struct proc *p = myproc();
     p->files_in_swap[index].isAvailable = 1;
     p->files_in_swap[index].page = 0;
     p->files_in_swap[index].va = -1;
@@ -775,15 +797,15 @@ procdump(void)
    return 0;
  }
 
- int free_page_from_phys() {
+ int free_page_from_phys(struct proc* p) {
    int index = find_page_to_swap();
    if (index == -1) {
      printf("error in swap\n");
      return -1;
    }
-    struct proc* p = myproc();
+    // struct proc* p = myproc();
     pte_t* page_to_swap = p->files_in_physicalmem[index].page;
-    swap_to_swapFile(page_to_swap, index);
+    swap_to_swapFile(p, page_to_swap, index);
 
     //find physical address
     //#define PTE_ADDR(pte)   ((uint)(pte) & ~0xFFF)
@@ -834,13 +856,13 @@ int find_index_file_arr(uint64 address) {
 // }
 
 //swap given page from physical memory to swapFile
-int swap_to_swapFile(pte_t *page, int ndx) {
-  struct proc *p = myproc();
+int swap_to_swapFile(struct proc* p, pte_t *page, int ndx) {
+  // struct proc *p = myproc();
   //find the page's index in the files_in_physicalmem array
   // int ndx = find_ndx_of_pg_in_physmem_arr(page);
   //find free insex in files_in_swap array
-  printf("ndx: %d\n", ndx);
-  ndx = 1;
+  // printf("ndx: %d\n", ndx);
+  ndx = (ndx + 1)%15;
   int file_index = find_free_index(p->files_in_swap);
   uint offset = file_index*PGSIZE;
   //update swapFile's offset according to the offset we found (so filewrite will write to the right place)
@@ -855,8 +877,8 @@ int swap_to_swapFile(pte_t *page, int ndx) {
   //TODO check that castingis ok
   writeToSwapFile(p, (char *)pa, offset, PGSIZE);
 
-  add_page_to_swapfile_array(page, va, offset);
-  remove_page_from_phys(ndx);
+  add_page_to_swapfile_array(p, page, va, offset);
+  remove_page_from_phys(p, ndx);
 
   //turn off valid flag (this page is not on physical memory anymore) TODO - check we understood valid flag correctly
   (*page) &= ~PTE_V;
@@ -876,46 +898,85 @@ int copy_file(struct proc* dest, struct proc* source) {
   return 0;
 }
 
-int swap_to_memory(uint64 address, pte_t *page) {
-  struct proc* p = myproc();
+int swap_to_memory(struct proc* p, uint64 address, pte_t *page) {
+  // struct proc* p = myproc();
   int swap_ind = find_index_file_arr(address);
+  //if index is -1, according to swap_file_array the file isn't in swapfile
   if (swap_ind == -1) {
     panic("index in file is -1");
   }
+  //offset in swap file
   int offset = p->files_in_swap[swap_ind].offset;
   if (offset == -1) {
     panic("offset is -1");
   }
-
+  //find a free index in main memory array
   int mem_ind = find_free_index(p->files_in_physicalmem);
+  //if there isn't a free index, make one
   if (mem_ind == -1) {
-    free_page_from_phys();
-    mem_ind = find_free_index(p->files_in_physicalmem);
+    free_page_from_phys(p);
+    if((mem_ind = find_free_index(p->files_in_physicalmem)) == -1){
+      panic("index in mainmem array not found even though one was just freed\n");
+    }
   }
-  char *pa = (char *)(PTE2PA(*page));
-  readFromSwapFile(p, (char*) pa, offset, PGSIZE);
-  p->files_in_swap[swap_ind].offset = -1;
-  p->files_in_swap[swap_ind].isAvailable = 1;
-  (*page) |= PTE_PG;
-  (*page) &= ~PTE_PG;
+  //make room for the page in memory using kalloc
+  char* buff;
+  if ((buff = kalloc()) == 0) {
+    panic("kalloc failed");
+  }
+  //copy the content of the page, from swapfile to the page we allocated in main memory
+  readFromSwapFile(p, buff, offset, PGSIZE);
+  //prepare the pte for this page
+  *page = PA2PTE((uint64)buff) | ((PTE_FLAGS(*page)& ~PTE_PG) | PTE_V);
+  // pte_to_insert = pte_to_insert | ((PTE_FLAGS(*pte_to_insert)& ~PTE_PG) | PTE_V);
   p->files_in_physicalmem[mem_ind].page = page;
   p->files_in_physicalmem[mem_ind].isAvailable = 0;
   p->files_in_physicalmem[mem_ind].va =  p->files_in_swap[swap_ind].va;
   p->num_of_pages_in_phys++;
-  mem_ind = find_free_index(p->files_in_physicalmem);
+
+  p->files_in_swap[swap_ind].offset = -1;
+  p->files_in_swap[swap_ind].isAvailable = 1;
+
   return 0;
+  // char *pa = (char *)(PTE2PA(*page));
+  // readFromSwapFile(p, (char*) pa, offset, PGSIZE);
+  // p->files_in_swap[swap_ind].offset = -1;
+  // p->files_in_swap[swap_ind].isAvailable = 1;
+  // (*page) |= PTE_PG;
+  // (*page) &= ~PTE_PG;
+  // p->files_in_physicalmem[mem_ind].page = page;
+  // p->files_in_physicalmem[mem_ind].isAvailable = 0;
+  // p->files_in_physicalmem[mem_ind].va =  p->files_in_swap[swap_ind].va;
+  // p->num_of_pages_in_phys++;
+  // mem_ind = find_free_index(p->files_in_physicalmem);
+  // return 0;
 }
 
-void hanle_page_fault() {
-  struct proc* p = myproc();
+//for cases when page isn't in swap file
+void hanle_page_fault(struct proc* p) {
+  // struct proc* p = myproc();
+  printf("files in memory:\n");
+  print_page_array(p, p->files_in_physicalmem);
+  printf("files in swap:\n");
+  print_page_array(p, p->files_in_swap);
+
   //determine the faulting address
   uint64 fault_address = r_stval();
+  printf("fault address: %d\n", fault_address);
   uint64 va = PGROUNDDOWN(fault_address); //find virtual address
   pte_t* pte = walk(p->pagetable, va, 0); //identify the page
   int check_flags = (!(*pte & PTE_V) && (*pte & PTE_PG)); //means page was paged out
   if (pte != 0 && check_flags) {
-    swap_to_memory(fault_address, pte);
+    swap_to_memory(p, fault_address, pte);
   } else { //In case that it is segmantation fault
     exit(-1);
+  }
+}
+
+void print_page_array(struct proc* p ,struct page_struct* pagearr) {
+  for (int i =0; i<MAX_PSYC_PAGES; i++) {
+    struct page_struct curr = pagearr[i];
+    printf("pid: %d, index: %d, page: %d, isAvailable: %d, va: %d, offset: %d\n",
+    p->pid, i, curr.page, curr.isAvailable, curr.va, curr.offset);
   }
 }
