@@ -349,16 +349,18 @@ fork(void)
 
   release(&np->lock);
 
-    //if this isn't init or shell, create swap file
+  //if this isn't init or shell, create swap file
   if(np->pid != 0 && np->pid != 1){
     createSwapFile(np);
+    //copy parent's arrays of memory arrangement
+    copy_memory_arrays(p, np);
+    //if parent has swap file, copy its content
+    if(p->swapFile){
+      copy_file(np, p);
+    }
   }
-  //if parent has swap file, copy its content
-  if(p->swapFile){
-    copy_file(np, p);
-  }
-  //copy parent's arrays of memory arrangement
-  copy_memory_arrays(p, np);
+
+
 
 
   acquire(&wait_lock);
@@ -841,9 +843,9 @@ procdump(void)
 // }
 
 int find_index_file_arr(uint64 address) {
-  uint64 va = PGROUNDDOWN(address);
+  // uint64 va = PGROUNDDOWN(address);
   for (int i=0; i<MAX_PSYC_PAGES; i++) {
-    if (myproc()->files_in_swap[i].va == va) {
+    if (myproc()->files_in_swap[i].offset == address) {
       return i;
     }
   }
@@ -898,18 +900,16 @@ int copy_file(struct proc* dest, struct proc* source) {
   return 0;
 }
 
-int swap_to_memory(struct proc* p, uint64 address, pte_t *page) {
-  // struct proc* p = myproc();
-  int swap_ind = find_index_file_arr(address);
-  //if index is -1, according to swap_file_array the file isn't in swapfile
-  if (swap_ind == -1) {
-    panic("index in file is -1");
+
+//swap a single page into ram
+int swap_to_memory(struct proc* p, uint64 address) {
+  //make room for the page in memory using kalloc
+  char* buff;
+  if ((buff = kalloc()) == 0) {
+    panic("kalloc failed");
   }
-  //offset in swap file
-  int offset = p->files_in_swap[swap_ind].offset;
-  if (offset == -1) {
-    panic("offset is -1");
-  }
+  uint64 va = PGROUNDDOWN(address);
+  printf("va: %d", va);
   //find a free index in main memory array
   int mem_ind = find_free_index(p->files_in_physicalmem);
   //if there isn't a free index, make one
@@ -919,25 +919,86 @@ int swap_to_memory(struct proc* p, uint64 address, pte_t *page) {
       panic("index in mainmem array not found even though one was just freed\n");
     }
   }
-  //make room for the page in memory using kalloc
-  char* buff;
-  if ((buff = kalloc()) == 0) {
-    panic("kalloc failed");
+
+  pte_t* pte = walk(p->pagetable, va, 0);
+
+  memset(buff, 0, PGSIZE);
+	sfence_vma();
+
+	*pte |= PTE_V | PTE_W | PTE_U;
+	*pte &= ~PTE_PG;
+	*pte |= *buff;
+
+  int swap_ind = find_index_file_arr(va);
+  //if index is -1, according to swap_file_array the file isn't in swapfile
+  if (swap_ind == -1) {
+    panic("index in file is -1");
   }
-  //copy the content of the page, from swapfile to the page we allocated in main memory
+
+  //offset in swap file
+  int offset = p->files_in_swap[swap_ind].offset;
+  if (offset == -1) {
+    panic("offset is -1");
+  }
+
   readFromSwapFile(p, buff, offset, PGSIZE);
-  //prepare the pte for this page
-  *page = PA2PTE((uint64)buff) | ((PTE_FLAGS(*page)& ~PTE_PG) | PTE_V);
-  // pte_to_insert = pte_to_insert | ((PTE_FLAGS(*pte_to_insert)& ~PTE_PG) | PTE_V);
-  p->files_in_physicalmem[mem_ind].page = page;
+  // memmove(buff, p->buff, PGSIZE);
+  if (mappages(p->pagetable, va, PGSIZE, (uint64)buff, PTE_W | PTE_X | PTE_R | PTE_U) != 0)
+      {
+        kfree(buff);
+        panic("PF_handler: mappages has failed");
+      }
+
+  p->files_in_physicalmem[mem_ind].page = pte;
   p->files_in_physicalmem[mem_ind].isAvailable = 0;
   p->files_in_physicalmem[mem_ind].va =  p->files_in_swap[swap_ind].va;
   p->num_of_pages_in_phys++;
 
   p->files_in_swap[swap_ind].offset = -1;
   p->files_in_swap[swap_ind].isAvailable = 1;
-
   return 0;
+  // int swap_ind = find_index_file_arr(address);
+  // //if index is -1, according to swap_file_array the file isn't in swapfile
+  // if (swap_ind == -1) {
+  //   panic("index in file is -1");
+  // }
+  // //offset in swap file
+  // int offset = p->files_in_swap[swap_ind].offset;
+  // if (offset == -1) {
+  //   panic("offset is -1");
+  // }
+  // //find a free index in main memory array
+  // int mem_ind = find_free_index(p->files_in_physicalmem);
+  // //if there isn't a free index, make one
+  // if (mem_ind == -1) {
+  //   free_page_from_phys(p);
+  //   if((mem_ind = find_free_index(p->files_in_physicalmem)) == -1){
+  //     panic("index in mainmem array not found even though one was just freed\n");
+  //   }
+  // }
+  // //make room for the page in memory using kalloc
+  // char* buff;
+  // if ((buff = kalloc()) == 0) {
+  //   panic("kalloc failed");
+  // }
+  // //copy the content of the page, from swapfile to the page we allocated in main memory
+  // readFromSwapFile(p, buff, offset, PGSIZE);
+  // //prepare the pte for this page
+  // *page = PA2PTE((uint64)buff) | ((PTE_FLAGS(*page)& ~PTE_PG) | PTE_V);
+  // // pte_to_insert = pte_to_insert | ((PTE_FLAGS(*pte_to_insert)& ~PTE_PG) | PTE_V);
+  // p->files_in_physicalmem[mem_ind].page = page;
+  // p->files_in_physicalmem[mem_ind].isAvailable = 0;
+  // p->files_in_physicalmem[mem_ind].va =  p->files_in_swap[swap_ind].va;
+  // p->num_of_pages_in_phys++;
+
+  // p->files_in_swap[swap_ind].offset = -1;
+  // p->files_in_swap[swap_ind].isAvailable = 1;
+
+  // return 0;
+
+
+
+
   // char *pa = (char *)(PTE2PA(*page));
   // readFromSwapFile(p, (char*) pa, offset, PGSIZE);
   // p->files_in_swap[swap_ind].offset = -1;
@@ -961,15 +1022,16 @@ void hanle_page_fault(struct proc* p) {
   print_page_array(p, p->files_in_swap);
 
   //determine the faulting address
-  uint64 fault_address = r_stval();
-  printf("fault address: %d\n", fault_address);
-  uint64 va = PGROUNDDOWN(fault_address); //find virtual address
+  uint64 va = r_stval();
+  printf("fault address: %d\n", va);
+  // uint64 va = PGROUNDDOWN(fault_address); //find virtual address
   pte_t* pte = walk(p->pagetable, va, 0); //identify the page
-  int check_flags = (!(*pte & PTE_V) && (*pte & PTE_PG)); //means page was paged out
-  if (pte != 0 && check_flags) {
-    swap_to_memory(p, fault_address, pte);
+  if (*pte & PTE_PG) {
+    swap_to_memory(p, va);
   } else { //In case that it is segmantation fault
-    exit(-1);
+    printf("usertrap1(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
+    printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
+    p->killed = 1;
   }
 }
 

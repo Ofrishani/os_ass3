@@ -89,6 +89,7 @@ enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 struct page_struct {
   int isAvailable;  //true if page is not used in virtual memory (otherwise the page is null)
   // int isUsed; //true if page is in physical memory, false if page is in swap_file.
+  pagetable_t pagetable;
   pte_t *page; //physical address
   uint64 va; //virtual address
   int offset; //offset in swap file

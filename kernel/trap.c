@@ -66,7 +66,7 @@ usertrap(void)
     intr_on();
 
     syscall();
-  } else if(r_scause() == 12 || r_scause() == 13 || r_scause() == 15) {
+  } else if(p->pid > 2 && (r_scause() == 12 || r_scause() == 13 || r_scause() == 15)) {
     // 12: page fault caused by an instruction, 13: page fault caused by a read, 15: page fault cause by a write
     printf("before handke page fault, r_scause: %d\n", r_scause());
     hanle_page_fault(p);
