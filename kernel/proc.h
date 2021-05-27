@@ -126,7 +126,7 @@ struct proc {
   struct page_struct files_in_physicalmem[MAX_PSYC_PAGES];
   int num_of_pages;   //total taken pages in proc
   int num_of_pages_in_phys;   //total taken pages in physical memory
-
+  char* buff;
 };
 
 int add_page_to_phys(struct proc *p, uint64* page, uint64 va);
@@ -134,7 +134,9 @@ int remove_page_from_phys(struct proc* p, int index);
 int add_page_to_swapfile_array(struct proc* p, uint64* page, uint64 va, int offset);
 int delete_page_from_file_arr(struct proc* p, int index);
 int free_page_from_phys(struct proc* p);
-int swap_to_swapFile(struct proc *p, pte_t *page, int ndx);
+int swap_to_swapFile(struct proc *p);
 int copy_file(struct proc* dest, struct proc* source);
 // void copy_memory_arrays(struct proc* src, struct proc* dst);
 void print_page_array(struct proc* p, struct page_struct* pagearr);
+int calc_ndx_for_ramarr_removal(void);
+void init_meta_data(struct proc* p);

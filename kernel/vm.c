@@ -19,6 +19,8 @@ extern char etext[];  // kernel.ld sets this to end of kernel code.
 
 extern char trampoline[]; // trampoline.S
 
+// extern void copy_memory_arrays(struct proc* src, struct proc* dst);
+
 // Make a direct-map page table for the kernel.
 pagetable_t
 kvmmake(void)
@@ -245,6 +247,7 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
   oldsz = PGROUNDUP(oldsz);
   int counter = 0;
   for(a = oldsz; a < newsz; a += PGSIZE){
+
     //OH minute 22
     //check if current process has more pages to give (out of the 32 it has)
     struct proc* p = myproc();
@@ -264,23 +267,16 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
       return 0;
     }
 
-    //check if there is free space in pyscmemory
-    // struct proc *p = myproc();
-    // int isfree = 0;
-    // for (int i = 0; i < MAX_PSYC_PAGES; i++ ) {
-    //   if (p->files_in_physicalmem[i].isAvailable) {
-    //     isfree = 1;
-    //   }
-    // }
-    pte_t* new_page = walk(pagetable, a, 0);
-    if (add_page_to_phys(p, new_page, a) == -1) {
-
-        printf("ERROR ERROR\n");
-        //TODO maybe kill process
+    //task 1
+    if (p->pid > 2) {
+      if (p->num_of_pages_in_phys < MAX_PSYC_PAGES) {
+        add_page_to_phys(p, pagetable, a); //a= va
+      } else {
+        swap_to_swapFile(p);
+        add_page_to_phys(p, pagetable, a);
+      }
     }
-    printf("in uvmalloc, pid:%d, counter: %d\n", p->pid,counter);
-    print_page_array(p, p->files_in_physicalmem);
-    print_page_array(p, p->files_in_swap);
+    // printf("pid: %d, counter: %d\n", p->pid, counter);
     counter++;
   }
   return newsz;
@@ -353,6 +349,14 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
       panic("uvmcopy: pte should exist");
     if((*pte & PTE_V) == 0)
       panic("uvmcopy: page not present");
+    // if (*pte & PTE_PG) { //TODO not sure, if yes CHANGE
+    //   printf(" enterd here\n");
+    //   pte_t *new_pte = walk(new, i, 0);
+    //   *new_pte |= PTE_PG;
+    //   *new_pte &= ~PTE_V;
+    //   continue;
+    // }
+
     pa = PTE2PA(*pte);
     flags = PTE_FLAGS(*pte);
     if((mem = kalloc()) == 0)
@@ -480,16 +484,42 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
 //task 1
 //this function copies from src process to dst process the
 //files_in_swap array and files_in_physicalmem array which are in charge of memory management
-void copy_memory_arrays(struct proc* src, struct proc* dst){
-  printf("src->files_in_swap: %d\t\tdst->files_in_swap%d\n", src->files_in_swap, dst->files_in_swap);
-  for(int i = 0; i < MAX_TOTAL_PAGES; i++){
-    dst->files_in_swap[i] = src->files_in_swap[i];
-  }
-  for(int i = 0; i < MAX_PSYC_PAGES; i++){
-    dst->files_in_physicalmem[i] = src->files_in_physicalmem[i];
-    //if the page is in physical memory we want to copy the PTE (to have access to the physical address)
-    if(dst->files_in_physicalmem[i].isAvailable == 0){
-      dst->files_in_physicalmem[i].page = walk(dst->pagetable, dst->files_in_physicalmem[i].va, 0);
-    }
+void copy_memory_arrays(struct proc* p, struct proc* np){
+  // printf("COPY_MEMORY_ARRAYS: src->files_in_swap: %d\t\tdst->files_in_swap%d\n", src->files_in_swap, dst->files_in_swap);
+  printf("COPY_MEMORY_ARRAYS, printing src files in ram array:\n");
+  print_page_array(p, p->files_in_physicalmem);
+  printf("COPY_MEMORY_ARRAYS, printing dst files in ram array:\n");
+  print_page_array(np, np->files_in_physicalmem);
+
+  // for(int i = 0; i < MAX_TOTAL_PAGES; i++){
+  //   dst->files_in_swap[i] = src->files_in_swap[i];
+  // }
+  // for(int i = 0; i < MAX_PSYC_PAGES; i++){
+  //   dst->files_in_physicalmem[i] = src->files_in_physicalmem[i];
+  //   //if the page is in physical memory we want to copy the PTE (to have access to the physical address)
+  //   if(dst->files_in_physicalmem[i].isAvailable == 0){
+  //     dst->files_in_physicalmem[i].page = walk(dst->pagetable, dst->files_in_physicalmem[i].va, 0);
+  //   }
+  // }
+
+
+  // for (int i = 0; i < MAX_PSYC_PAGES; i++)
+  //   {
+  //     if (p->files_in_swap[i].isAvailable == 0)
+  //     {
+  //       p->buff = kalloc();
+  //       readFromSwapFile(p, p->buff, PGSIZE*i, PGSIZE);
+  //       writeToSwapFile(np, p->buff, PGSIZE*i, PGSIZE);
+  //       kfree(p->buff);
+  //     }
+  //   }
+  for (int i = 0; i < MAX_PSYC_PAGES; i++)
+  {
+    np->files_in_swap[i] = p->files_in_swap[i];
+    if(p->files_in_swap[i].isAvailable == 0)
+    np->files_in_swap[i].pagetable = np->pagetable;
+    np->files_in_physicalmem[i] = p->files_in_physicalmem[i];
+    if(p->files_in_physicalmem[i].isAvailable == 0)
+    np->files_in_physicalmem[i].pagetable = np->pagetable;
   }
 }
