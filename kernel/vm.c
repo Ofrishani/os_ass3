@@ -195,6 +195,14 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
     struct proc *p = myproc();
     if((p->pid > 2) && (p->pagetable != pagetable))
     {
+      //look in swap array to remove
+      for(int i = 0; i < MAX_TOTAL_PAGES - MAX_PSYC_PAGES + 1; i++){
+        if(p->files_in_swap[i].va == a){
+          p->files_in_swap[i].va = 0;
+          p->files_in_swap[i].isAvailable = 1;
+          p->num_of_pages--;
+        }
+      }
       //find the page in ram array and remove
       for(int i = 0; i < MAX_PSYC_PAGES; i++)
       {
