@@ -159,6 +159,8 @@ int copy_file(struct proc* dest, struct proc* source);
 // void copy_memory_arrays(struct proc* src, struct proc* dst);
 void print_page_array(struct proc* p, struct page_struct* pagearr);
 int calc_ndx_NFUA(struct proc *p);
+int calc_ndx_LAPA(struct proc *p);
+int calc_ones(uint nums);
 int calc_ndx_for_ramarr_removal(struct proc *p);
 void init_meta_data(struct proc* p);
 void update_counter_NFUA(struct proc* p);
@@ -167,3 +169,6 @@ void update_counter_LAPA(struct proc* p);
 #ifdef SCFIFO
 int calc_ndx_for_scfifo(struct proc *p);
 #endif
+
+//task 3
+int printmem(void);

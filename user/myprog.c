@@ -50,9 +50,24 @@ copyin(char *s)
   }
 }
 
+int scfifo_test(){
+  printmem();
+  //allocate 17 memory pages
+  char *ret = sbrk(17);
+  // int ret = 5;
+  // sbrk(17);
+  printf("ret: %d\n", ret);
+  //print memory
+  printmem();
+
+  return 1;
+}
+
 int main(int argc, char *argv[]){
     printf("hello from myprog!\n");
-    copyin("hello");
+    // copyin("hello");
+    // scfifo_test();
+    sbrk(20);
     printf("after test\n");
     exit(0);
 }

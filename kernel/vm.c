@@ -168,6 +168,9 @@ mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
 void
 uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
 {
+  printf("hello from uvmunmap. npages: %d\n", npages);
+  if (myproc()->pid >2)
+    print_page_array(myproc(), myproc()->files_in_physicalmem);
   uint64 a;
   pte_t *pte;
 
@@ -190,8 +193,9 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
     }
     #ifndef NONE
     struct proc *p = myproc();
-    if(p->pid > 2)
+    if((p->pid > 2) && (p->pagetable != pagetable))
     {
+      //find the page in ram array and remove
       for(int i = 0; i < MAX_PSYC_PAGES; i++)
       {
         if(p->files_in_physicalmem[i].va == a)
@@ -227,6 +231,10 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
     #endif
     *pte = 0;
   }
+  printf("leaving uvmunmap\n");
+  if(myproc()->pid >2)
+    print_page_array(myproc(), myproc()->files_in_physicalmem);
+
 }
 
 // create an empty user page table.
@@ -299,10 +307,10 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
     if (p->pid > 2) {
       if (p->num_of_pages_in_phys < MAX_PSYC_PAGES) {
         add_page_to_phys(p, pagetable, a); //a= va
-        
+
       } else {
         swap_to_swapFile(p);
-        printf("swapped ti swapfile\n");
+        // printf("swapped ti swapfile\n");
         add_page_to_phys(p, pagetable, a);
       }
     }
