@@ -108,7 +108,7 @@ exec(char *path, char **argv)
       last = s+1;
   safestrcpy(p->name, last, sizeof(p->name));
 
-
+  #ifndef NONE
   if(myproc()->pid >2)
   {
     for (int i=0; i<MAX_PSYC_PAGES; i++)
@@ -124,6 +124,7 @@ exec(char *path, char **argv)
       }
     }
   }
+  #endif
 
   // Commit to the user image.
   oldpagetable = p->pagetable;

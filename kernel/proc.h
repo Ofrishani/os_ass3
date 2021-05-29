@@ -86,6 +86,7 @@ struct trapframe {
 enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
 // task 1
+// #ifndef NONE
 struct page_struct {
   int isAvailable;  //true if page is not used in virtual memory (otherwise the page is null)
   // int isUsed; //true if page is in physical memory, false if page is in swap_file.
@@ -93,7 +94,19 @@ struct page_struct {
   pte_t *page; //physical address
   uint64 va; //virtual address
   int offset; //offset in swap file
+  //task 2
+  #ifdef NFUA
+    uint counter_NFUA;
+  #endif
+  #ifdef LAPA
+    uint counter_LAPA;
+  #endif
+  #ifdef SCFIFO
+    int index_of_next_p;
+    int index_of_prev_p;
+  #endif
 };
+// #endif
 
 
 // Per-process state
@@ -119,7 +132,7 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
-
+  // #ifndef NONE
   struct file *swapFile;
   // int swapFile_offset;  //points to free space in swapFile
   struct page_struct files_in_swap[MAX_TOTAL_PAGES]; // swap file metadata. for each page in process memory, holds a page_struct
@@ -127,8 +140,15 @@ struct proc {
   int num_of_pages;   //total taken pages in proc
   int num_of_pages_in_phys;   //total taken pages in physical memory
   char* buff;
+
+  //task 2
+  #ifdef SCFIFO
+    int index_of_head_p;
+  #endif
+  // #endif
 };
 
+// #ifndef NONE
 int add_page_to_phys(struct proc *p, uint64* page, uint64 va);
 int remove_page_from_phys(struct proc* p, int index);
 int add_page_to_swapfile_array(struct proc* p, uint64* page, uint64 va, int offset);
@@ -138,5 +158,12 @@ int swap_to_swapFile(struct proc *p);
 int copy_file(struct proc* dest, struct proc* source);
 // void copy_memory_arrays(struct proc* src, struct proc* dst);
 void print_page_array(struct proc* p, struct page_struct* pagearr);
-int calc_ndx_for_ramarr_removal(void);
+int calc_ndx_NFUA(struct proc *p);
+int calc_ndx_for_ramarr_removal(struct proc *p);
 void init_meta_data(struct proc* p);
+void update_counter_NFUA(struct proc* p);
+void update_counter_LAPA(struct proc* p);
+// #endif
+#ifdef SCFIFO
+int calc_ndx_for_scfifo(struct proc *p);
+#endif

@@ -25,6 +25,7 @@ fmtname(char *path)
 void
 ls(char *path)
 {
+  printf("hello from ls\n");
   char buf[512], *p;
   int fd;
   struct dirent de;
@@ -68,11 +69,13 @@ ls(char *path)
     break;
   }
   close(fd);
+  printf("goodbye from ls\n");
 }
 
 int
 main(int argc, char *argv[])
 {
+  printf("fejklwnfcjkdn\n");
   int i;
 
   if(argc < 2){

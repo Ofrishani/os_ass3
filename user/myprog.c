@@ -53,6 +53,6 @@ copyin(char *s)
 int main(int argc, char *argv[]){
     printf("hello from myprog!\n");
     copyin("hello");
-    printf("after test");
+    printf("after test\n");
     exit(0);
 }

@@ -333,6 +333,7 @@ sfence_vma()
 #define PTE_X (1L << 3)
 #define PTE_U (1L << 4) // 1 -> user can access
 #define PTE_PG (1L << 9) // Paged out to secondary storage
+#define PTE_A (1L << 6) //task 2, page in ram was accessed
 
 
 // shift a physical address to the right place for a PTE.
