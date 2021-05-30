@@ -135,7 +135,7 @@ struct proc {
   // #ifndef NONE
   struct file *swapFile;
   // int swapFile_offset;  //points to free space in swapFile
-  struct page_struct files_in_swap[MAX_TOTAL_PAGES]; // swap file metadata. for each page in process memory, holds a page_struct
+  struct page_struct files_in_swap[MAX_PSYC_PAGES]; // swap file metadata. for each page in process memory, holds a page_struct
   struct page_struct files_in_physicalmem[MAX_PSYC_PAGES];
   int num_of_pages;   //total taken pages in proc
   int num_of_pages_in_phys;   //total taken pages in physical memory
@@ -154,7 +154,7 @@ int remove_page_from_phys(struct proc* p, int index);
 int add_page_to_swapfile_array(struct proc* p, uint64* page, uint64 va, int offset);
 int delete_page_from_file_arr(struct proc* p, int index);
 int free_page_from_phys(struct proc* p);
-int swap_to_swapFile(struct proc *p);
+int swap_to_swapFile(struct proc *p, pagetable_t pagetable);
 int copy_file(struct proc* dest, struct proc* source);
 // void copy_memory_arrays(struct proc* src, struct proc* dst);
 void print_page_array(struct proc* p, struct page_struct* pagearr);

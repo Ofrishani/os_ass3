@@ -7,6 +7,8 @@
 #define O_RDWR    0x002
 #define O_CREATE  0x200
 #define O_TRUNC   0x400
+#define PGSIZE 4096 // bytes per page
+
 
 void
 copyin(char *s)
@@ -53,7 +55,7 @@ copyin(char *s)
 int scfifo_test(){
   printmem();
   //allocate 17 memory pages
-  char *ret = sbrk(17);
+  char *ret = sbrk(20*PGSIZE);
   // int ret = 5;
   // sbrk(17);
   printf("ret: %d\n", ret);
@@ -66,8 +68,9 @@ int scfifo_test(){
 int main(int argc, char *argv[]){
     printf("hello from myprog!\n");
     // copyin("hello");
-    // scfifo_test();
-    sbrk(20);
+    scfifo_test();
+
+    // sbrk(20*PGSIZE);
     printf("after test\n");
     exit(0);
 }

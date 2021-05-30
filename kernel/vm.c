@@ -112,16 +112,25 @@ walkaddr(pagetable_t pagetable, uint64 va)
   pte_t *pte;
   uint64 pa;
 
-  if(va >= MAXVA)
+  if(va >= MAXVA){
+    printf("va >= MAXVA\n");
     return 0;
+  }
 
   pte = walk(pagetable, va, 0);
-  if(pte == 0)
+  if(pte == 0){
+    printf("pte == 0\n");
     return 0;
-  if((*pte & PTE_V) == 0)
+  }
+
+  if((*pte & PTE_V) == 0){
+    printf("*pte & PTE_V\n");
     return 0;
-  if((*pte & PTE_U) == 0)
+  }
+  if((*pte & PTE_U) == 0){
+    printf("*pte & PTE_U\n");
     return 0;
+  }
   pa = PTE2PA(*pte);
   return pa;
 }
@@ -196,9 +205,9 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
     if((p->pid > 2) && (p->pagetable != pagetable))
     {
       //look in swap array to remove
-      for(int i = 0; i < MAX_TOTAL_PAGES - MAX_PSYC_PAGES + 1; i++){
-        if(p->files_in_swap[i].va == a){
-          p->files_in_swap[i].va = 0;
+      for(int i = 0; i < MAX_PSYC_PAGES; i++){
+        if((p->files_in_swap[i].isAvailable == 0) && p->files_in_swap[i].va == a){
+          // p->files_in_swap[i].va = 0;
           p->files_in_swap[i].isAvailable = 1;
           p->num_of_pages--;
         }
@@ -206,10 +215,12 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
       //find the page in ram array and remove
       for(int i = 0; i < MAX_PSYC_PAGES; i++)
       {
-        if(p->files_in_physicalmem[i].va == a)
+        if((p->files_in_physicalmem[i].isAvailable == 0) && p->files_in_physicalmem[i].va == a)
         {
-          p->files_in_physicalmem[i].va = 0;
+          // p->files_in_physicalmem[i].va = 0;
           p->files_in_physicalmem[i].isAvailable = 1;
+          p->num_of_pages--;
+          p->num_of_pages_in_phys--;
           //in scfifo we need to update ram array upon page removal
           #ifdef SCFIFO
             //update ram array
@@ -232,8 +243,8 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
             }
           #endif
         }
-        p->num_of_pages--;
-        p->num_of_pages_in_phys--;
+        // p->num_of_pages--;
+        // p->num_of_pages_in_phys--;
       }
     }
     #endif
@@ -286,6 +297,7 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
     return oldsz;
 
   oldsz = PGROUNDUP(oldsz);
+
   // int counter = 0;
   for(a = oldsz; a < newsz; a += PGSIZE){
 
@@ -314,10 +326,13 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
     // printf("should not enter here\n");
     if (p->pid > 2) {
       if (p->num_of_pages_in_phys < MAX_PSYC_PAGES) {
+        printf("num_of_pages_in_phys: %d\n", p->num_of_pages_in_phys);
         add_page_to_phys(p, pagetable, a); //a= va
 
       } else {
-        swap_to_swapFile(p);
+        printf("DEBUG uvmalloc swapping to file\n");
+        swap_to_swapFile(p, p->pagetable);
+        printf("swap finished\n");
         // printf("swapped ti swapfile\n");
         add_page_to_phys(p, pagetable, a);
       }

@@ -830,7 +830,7 @@ int add_page_to_phys(struct proc* p, pagetable_t pagetable, uint64 va) {
 int find_index_file_arr(struct proc* p, uint64 address) {
   // uint64 va = PGROUNDDOWN(address);
   for (int i=0; i<MAX_PSYC_PAGES; i++) {
-    if (p->files_in_swap[i].va == address) {
+    if ((p->files_in_swap[i].isAvailable == 0) && p->files_in_swap[i].va == address) {
       printf("DEBUG found index in swapfilearr: %d\n", i);
       return i;
     }
@@ -845,14 +845,14 @@ int find_index_file_arr(struct proc* p, uint64 address) {
   Inserts a page_struct to ram array.
   Before insertion, finds a page in ram to swap into swapfile.
 */
-int swap_to_swapFile(struct proc* p) {
+int swap_to_swapFile(struct proc* p, pagetable_t pagetable) {
   // printf("swap to swapfile\n");
   // p = myproc();
   // print_page_array(p, p->files_in_physicalmem);
   int mem_ind = calc_ndx_for_ramarr_removal(p);  //index of page to remove from ram array
-  // printf("mem ind:%d\n", mem_ind);
+  printf("mem ind:%d\n", mem_ind);
   int swap_ind = find_free_index(p->files_in_swap);
-
+  printf("swap ind:%d\n", swap_ind);
   //for scfifo, update memory arrays' prevs and nexts, and ram array's head
   #ifdef SCFIFO
     //update ram array
@@ -879,11 +879,15 @@ int swap_to_swapFile(struct proc* p) {
   #endif
 
   //insert page in mem_ind to swapfile
-  pagetable_t pagetable_to_swap_file = p->files_in_physicalmem[mem_ind].pagetable;
+  // pagetable_t pagetable_to_swap_file = p->files_in_physicalmem[mem_ind].pagetable;
+  pagetable_t pagetable_to_swap_file = pagetable;
+
   uint64 va_to_swap_file = p->files_in_physicalmem[mem_ind].va;
   uint64 pa = walkaddr(pagetable_to_swap_file, va_to_swap_file);
   int offset = swap_ind*PGSIZE; //fine offset we want to insert to
+  printf("writing to swapfile. pa: %p, va: %p, offset: %p\n", pa, va_to_swap_file, offset);
   writeToSwapFile(p, (char *)pa, offset, PGSIZE);
+  printf("written to swapfile\n");
 
   //update swap_arr with the new file
   p->files_in_swap[swap_ind].pagetable = pagetable_to_swap_file;
@@ -893,12 +897,13 @@ int swap_to_swapFile(struct proc* p) {
   p->files_in_swap[swap_ind].page = p->files_in_physicalmem[mem_ind].page;
 
   //kfree selected file from memory
-  pte_t* pte = p->files_in_physicalmem[mem_ind].page;
+  pte_t* pte = walk(pagetable, p->files_in_physicalmem[mem_ind].va, 0);
+  // pte_t* pte = p->files_in_physicalmem[mem_ind].page;
   char *pa_tofree = (char *)PTE2PA(*pte);
   kfree(pa_tofree);
 
   //update pte flags
-  //turn off valid flag (this page is not on physical memory anymore) TODO - check we understood valid flag correctly
+  //turn off valid flag (this page is not on physical memory anymore)
   (*pte) &= ~PTE_V;
   //set the flag indicating that the page was laged out to secondary storage
   (*pte) |= PTE_PG;
@@ -915,7 +920,8 @@ int swap_to_swapFile(struct proc* p) {
   #endif
 
   p->num_of_pages_in_phys--;
-  // printf("finishing swap to swapfile\n");
+  printf("finishing swap to swapfile. ramarray:\n");
+  print_page_array(p, p->files_in_physicalmem);
   return 0;
 }
 
@@ -995,12 +1001,10 @@ int swap_to_memory(struct proc* p, uint64 address) {
   if (p->num_of_pages_in_phys < MAX_PSYC_PAGES) {
     insert_from_swap_to_ram(p, buff, va);
     memmove((void*)va, buff, PGSIZE); //copy page to va TODO check im not sure
-
-
   } else {
     // int index_to_remove_from_ram = calc_ndx_for_ramarr_removal();
     printf("swap_to_memory, calling to swap to swapfile\n");
-    swap_to_swapFile(p);      //if there's no available place in ram, make some
+    swap_to_swapFile(p, p->pagetable);      //if there's no available place in ram, make some
     insert_from_swap_to_ram(p, buff, va); //move from swapfile the page we wanted to insert to ram
     memmove((void*)va, buff, PGSIZE); //copy page to va TODO check im not sure
   }
@@ -1158,7 +1162,9 @@ void update_counter_NFUA(struct proc* p) {
   // printf("-----------------------------------------------------------begin update_counter_NFUA\n");
   for (int i = 0; i < MAX_PSYC_PAGES; i++) {
     struct page_struct curr_page = p->files_in_physicalmem[i];
+    printf("hi walk\n");
     pte_t* pte = walk(p->pagetable, curr_page.va, 0);
+    printf("done walking\n");
     // pte_t* pte = curr_page.page;
     if (curr_page.isAvailable == 0) {
       if(*pte & PTE_A) {
