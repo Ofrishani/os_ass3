@@ -177,9 +177,8 @@ mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
 void
 uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
 {
-  printf("hello from uvmunmap. npages: %d\n", npages);
-  if (myproc()->pid >2)
-    print_page_array(myproc(), myproc()->files_in_physicalmem);
+  // printf("hello from uvmunmap. npages: %d\n", npages);
+  // if (myproc()->pid smyproc(), myproc()->files_in_physicalmem);
   uint64 a;
   pte_t *pte;
 
@@ -250,9 +249,9 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
     #endif
     *pte = 0;
   }
-  printf("leaving uvmunmap\n");
-  if(myproc()->pid >2)
-    print_page_array(myproc(), myproc()->files_in_physicalmem);
+  // printf("leaving uvmunmap\n");
+  // if(myproc()->pid >2)
+    // print_page_array(myproc(), myproc()->files_in_physicalmem);
 
 }
 
@@ -326,11 +325,11 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
     // printf("should not enter here\n");
     if (p->pid > 2) {
       if (p->num_of_pages_in_phys < MAX_PSYC_PAGES) {
-        printf("num_of_pages_in_phys: %d\n", p->num_of_pages_in_phys);
+        // printf("num_of_pages_in_phys: %d\n", p->num_of_pages_in_phys);
         add_page_to_phys(p, pagetable, a); //a= va
 
       } else {
-        printf("DEBUG uvmalloc swapping to file\n");
+        // printf("DEBUG uvmalloc swapping to file\n");
         swap_to_swapFile(p, p->pagetable);
         printf("swap finished\n");
         // printf("swapped ti swapfile\n");
@@ -409,15 +408,15 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
   for(i = 0; i < sz; i += PGSIZE){
     if((pte = walk(old, i, 0)) == 0)
       panic("uvmcopy: pte should exist");
-    if((*pte & PTE_V) == 0)
+    if((*pte & PTE_V) == 0) {
+      if (*pte & PTE_PG) { //TODO not sure, if yes CHANGE
+        pte_t *new_pte = walk(new, i, 1);
+        *new_pte |= PTE_PG;
+        *new_pte &= ~PTE_V;
+        continue;
+      }
       panic("uvmcopy: page not present");
-    // if (*pte & PTE_PG) { //TODO not sure, if yes CHANGE
-    //   printf(" enterd here\n");
-    //   pte_t *new_pte = walk(new, i, 0);
-    //   *new_pte |= PTE_PG;
-    //   *new_pte &= ~PTE_V;
-    //   continue;
-    // }
+    }
 
     pa = PTE2PA(*pte);
     flags = PTE_FLAGS(*pte);
