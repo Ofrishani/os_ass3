@@ -350,6 +350,11 @@ fork(void)
       memmove((void *)&np->files_in_swap[i], (void *)&p->files_in_swap[i], sizeof(struct page_struct));
       // printf("fork memmove end\n");
     }
+    printf("parents files in ram:\n");
+    print_page_array(p, p->files_in_physicalmem);
+    printf("child's pages in ram:\n");
+    print_page_array(np, np->files_in_physicalmem);
+    printf("pte for parent's page 2: %p, for childs page 2: %p\n", p->files_in_physicalmem[2], np->files_in_physicalmem[2]);
     //if parent has swap file, copy its content
     if(p->swapFile){
       copy_file(np, p);
@@ -749,6 +754,9 @@ procdump(void)
   for(pa_swap = p->files_in_swap; pa_swap < &p->files_in_swap[MAX_PSYC_PAGES] ; pa_swap++) {
     pa_swap->pagetable = p->pagetable;
     pa_swap->isAvailable = 1;
+    // if(p->pid == 4){
+    //   printf("hereeeeeeee 2\n");
+    // }
     pa_swap->va = -1;
     pa_swap->offset = -1;
     #ifdef NFUA
@@ -765,6 +773,9 @@ procdump(void)
 
   for(pa_psyc = p->files_in_physicalmem; pa_psyc < &p->files_in_physicalmem[MAX_PSYC_PAGES] ; pa_psyc++) {
     pa_psyc->pagetable = p->pagetable;
+    // if(p->pid == 4){
+    //   printf("hereeeeeeee 3\n");
+    // }
     pa_psyc->isAvailable = 1;
     pa_psyc->va = -1;
     pa_psyc->offset = -1;
@@ -854,7 +865,7 @@ int swap_to_swapFile(struct proc* p, pagetable_t pagetable) {
   // print_page_array(p, p->files_in_physicalmem);
   int mem_ind = calc_ndx_for_ramarr_removal(p);  //index of page to remove from ram array
 
-  printf("selected:%d\n", mem_ind);
+  printf("selected:%d (pid: %d)\n", mem_ind, p->pid);
   int swap_ind = find_free_index(p->files_in_swap);
   // printf("swap ind:%d\n", swap_ind);
   //for scfifo, update memory arrays' prevs and nexts, and ram array's head
@@ -887,8 +898,14 @@ int swap_to_swapFile(struct proc* p, pagetable_t pagetable) {
   pagetable_t pagetable_to_swap_file = pagetable;
 
   uint64 va_to_swap_file = p->files_in_physicalmem[mem_ind].va;
+
+  //
+  pte_t *pte2 = walk(pagetable_to_swap_file, va_to_swap_file, 0);
+  *pte2 |= PTE_U;
+  //
+
   uint64 pa = walkaddr(pagetable_to_swap_file, va_to_swap_file);
-  int offset = swap_ind*PGSIZE; //fine offset we want to insert to
+  int offset = swap_ind*PGSIZE; //find offset we want to insert to
   printf("writing to swapfile. pa: %p, va: %p, offset: %p\n", pa, va_to_swap_file, offset);
   writeToSwapFile(p, (char *)pa, offset, PGSIZE);
   printf("written to swapfile\n");
@@ -909,13 +926,16 @@ int swap_to_swapFile(struct proc* p, pagetable_t pagetable) {
   //update pte flags
   //turn off valid flag (this page is not on physical memory anymore)
   (*pte) &= ~PTE_V;
-  //set the flag indicating that the page was laged out to secondary storage
+  //set the flag indicating that the page was paged out to secondary storage
   (*pte) |= PTE_PG;
 
   sfence_vma();
 
   //update mem_arr
   p->files_in_physicalmem[mem_ind].isAvailable = 1;
+  // if(p->pid == 4){
+  //     printf("hereeeeeeee 4\n");
+  //   }
   #ifdef NFUA
   p->files_in_physicalmem[mem_ind].counter_NFUA = 0;
   #endif
@@ -947,8 +967,11 @@ int insert_from_swap_to_ram(struct proc* p, char* buff ,uint64 va) {
     // *pte |= PTE_V | PTE_W | PTE_U | PTE_X; //mark that page is in ram, is writable, and is a user page
     // *pte &= ~PTE_PG;              //page was moved from swapfile
     // *pte |= *buff;                //TODO not sure
-    mappages(p->pagetable, va, PGSIZE, (uint64)buff,  (PTE_W | PTE_U | PTE_X | PTE_R));
+    // printf("va in insert to ram: %d\n", va);
+    if(mappages(p->pagetable, va, PGSIZE, (uint64)buff,  (PTE_W | PTE_U | PTE_X | PTE_R)) == -1)
+      printf("walk() couldn't allocate a needed page-table page\n");
     // printf("pte: %p\n", *pte);
+    // printf("va after map: %d\n", va);
     int swap_ind = find_index_file_arr(p, va);
     //if index is -1, according to swap_file_array the file isn't in swapfile
     if (swap_ind == -1) {
@@ -958,9 +981,9 @@ int insert_from_swap_to_ram(struct proc* p, char* buff ,uint64 va) {
     if (offset == -1) {
       panic("offset is -1");
     }
-    printf("before read\n");
+    // printf("before read\n");
     readFromSwapFile(p, buff, offset, PGSIZE);
-    printf("afer read\n");
+    // printf("afer read\n");
 
     //copy swap_arr[index] to mem_arr[index] and change swap_arr[index] to available
     int mem_ind = find_free_index(p->files_in_physicalmem);
@@ -972,6 +995,9 @@ int insert_from_swap_to_ram(struct proc* p, char* buff ,uint64 va) {
     p->num_of_pages_in_phys++;
 
     p->files_in_swap[swap_ind].isAvailable = 1;
+    // if(p->pid == 4){
+    //   printf("hereeeeeeee 5\n");
+    // }
 
     //need to maintain counter fiels value
     #ifdef NFUA
@@ -999,6 +1025,7 @@ int insert_from_swap_to_ram(struct proc* p, char* buff ,uint64 va) {
 int swap_to_memory(struct proc* p, uint64 address) {
   printf("swapping to memory. address: %d\n", address);
   uint64 va = PGROUNDDOWN(address);
+  printf("va: %d\n", va);
   //make room for the page in memory using kalloc
   char* buff;
   if ((buff = kalloc()) == 0) {
@@ -1010,7 +1037,7 @@ int swap_to_memory(struct proc* p, uint64 address) {
     uint64 pa = walkaddr(p->pagetable, va);
     printf("before memove\n");
     memmove((void*)pa, buff, PGSIZE); //copy page to va TODO check im not sure
-    printf("I memoved");
+    printf("I memoved\n");
   } else {
     // int index_to_remove_from_ram = calc_ndx_for_ramarr_removal();
     printf("swap_to_memory, calling to swap to swapfile\n");
@@ -1022,7 +1049,7 @@ int swap_to_memory(struct proc* p, uint64 address) {
     printf("pa: %d, va: %d\n", pa, va);
     printf("before memove 2\n");
     memmove((void*)pa, buff, PGSIZE); //copy page to va TODO check im not sure
-    printf("I memoved");  }
+    printf("I memoved\n");  }
   return 0;
 }
 
@@ -1035,11 +1062,13 @@ void hanle_page_fault(struct proc* p) {
   // printf("files in memory:\n");
   // print_page_array(p, p->files_in_physicalmem);
   printf("handle page faulr files in swap:\n");
-  // print_page_array(p, p->files_in_swap);
+  print_page_array(p, p->files_in_swap);
+  printf("and files in ram:\n");
+  print_page_array(p, p->files_in_physicalmem);
 
   //determine the faulting address
   uint64 va = r_stval();
-  printf("fault address: %d\n", va);
+  printf("fault address: %d. rounded down: %d\n", va, PGROUNDDOWN(va));
   // uint64 va = PGROUNDDOWN(fault_address); //find virtual address
   pte_t* pte = walk(p->pagetable, va, 0); //identify the page
   //if page is in swapfile, put it in ram
@@ -1052,11 +1081,12 @@ void hanle_page_fault(struct proc* p) {
   }
 }
 // #ifdef LAPA
+//ppp
 void print_page_array(struct proc* p ,struct page_struct* pagearr) {
   for (int i =0; i<MAX_PSYC_PAGES; i++) {
     struct page_struct curr = pagearr[i];
     printf("pid: %d, index: %d, isAvailable: %d, va: %d, offset: %d, counter_NFUA:  \n",
-    p->pid, i, curr.isAvailable, curr.va/PGSIZE, curr.offset);
+    p->pid, i, curr.isAvailable, curr.va, curr.offset);
   }
 }
 // #endif
@@ -1129,11 +1159,11 @@ int calc_ndx_LAPA(struct proc *p){
   print_page_array(p, p->files_in_physicalmem);
 
   int selected = -1;
-  int curr_index = -1;
-  int lowest = -1;
+  uint curr_index = -1;
+  uint lowest = -1;
   for (int i = 0; i < MAX_PSYC_PAGES; i++) {
     struct page_struct curr_page = p->files_in_physicalmem[i];
-    if (curr_page.isAvailable) {
+    if (curr_page.isAvailable == 0) {
       curr_index = calc_ones(curr_page.counter_LAPA);
       if (curr_index < lowest) {
         lowest = curr_index;
@@ -1220,28 +1250,38 @@ void update_counter_NFUA(struct proc* p) {
 
 #ifdef LAPA
 void update_counter_LAPA(struct proc* p) {
-    for (int i = 0; i < MAX_PSYC_PAGES; i++) {
+    // printf("-----------------------------------------------------------begin update_counter_NFUA\n");
+
+  for (int i = 0; i < MAX_PSYC_PAGES; i++) {
     struct page_struct curr_page = p->files_in_physicalmem[i];
     // pte_t* pte = curr_page.page;
     if (curr_page.isAvailable == 0) {
-      // printf("hello update");
       pte_t* pte = walk(p->pagetable, curr_page.va, 0);
-      curr_page.counter_LAPA >>=1;
+      // printf("before shift\n");
+      p->files_in_physicalmem[i].counter_LAPA >>=1;
+      counter++;
+      // printf("counter: %d \n", counter);
       if(*pte & PTE_A) {
-        // printf("gsjsdfsdfsdf");
-        curr_page.counter_LAPA |= 0x80000000;
+        p->files_in_physicalmem[i].counter_LAPA |= 0x80000000;
         // printf("curr_page.counter_NFUA %x, %d, index: %d\n", curr_page.counter_NFUA, curr_page.counter_NFUA, i);
         *pte &= ~PTE_A;
-        // p->files_in_physicalmem[i].counter_NFUA = curr_page.counter_NFUA;
         // p->files_in_physicalmem[i].page = pte;
-        curr_page.page = pte;
-        p->files_in_physicalmem[i] = curr_page;
-        // printf("new counter: %p\n",p->files_in_physicalmem[i] = curr_page;)
-            // printf("update counter\n");
+        // curr_page.page = pte;
+        // p->files_in_physicalmem[i] = curr_page;
+
       }
-      // printf("end calculate\n");
+      // p->files_in_physicalmem[i].counter_NFUA = curr_page.counter_NFUA;
+      // printf("new counter: counter_NFUA: %p\n", p->files_in_physicalmem[i].counter_NFUA);
+      if (p->files_in_physicalmem[i].counter_LAPA) {
+        // print_page_array(p, p->files_in_physicalmem);
+      }
+
+
     }
+    // printf("update counter\n");
+    // print_page_array(p, p->files_in_swap);
   }
+  // printf("end update_counter_NFUA\n");
 }
 #endif
 

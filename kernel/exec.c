@@ -32,6 +32,7 @@ exec(char *path, char **argv)
     for(int i=0; i<MAX_PSYC_PAGES; i++){
       memmove((void *)&old_ram[i], (void *)&p->files_in_physicalmem[i], sizeof(struct page_struct));
       memmove((void *)&old_swap[i], (void *)&p->files_in_swap[i], sizeof(struct page_struct));
+
       p->files_in_physicalmem[i].isAvailable = 1;
       // p->files_in_physicalmem[i].va = -1;
       p->files_in_swap[i].isAvailable = 1;

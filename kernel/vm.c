@@ -97,7 +97,7 @@ walk(pagetable_t pagetable, uint64 va, int alloc)
       if(!alloc || (pagetable = (pde_t*)kalloc()) == 0)
         return 0;
       memset(pagetable, 0, PGSIZE);
-      *pte = PA2PTE(pagetable) | PTE_V;
+      *pte = PA2PTE(pagetable) | PTE_V; //TODO maybe add | PTE_U
     }
   }
   return &pagetable[PX(0, va)];
@@ -128,7 +128,7 @@ walkaddr(pagetable_t pagetable, uint64 va)
     return 0;
   }
   if((*pte & PTE_U) == 0){
-    printf("*pte & PTE_U\n");
+    printf("*pte & PTE_U. *pte: %d\n", *pte);
     return 0;
   }
   pa = PTE2PA(*pte);
@@ -201,13 +201,17 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
     }
     #ifndef NONE
     struct proc *p = myproc();
-    if((p->pid > 2) && (p->pagetable != pagetable))
+    //we don't want a process changing its parents' memory
+    if((p->pagetable == pagetable) && (p->pid > 2))
     {
       //look in swap array to remove
       for(int i = 0; i < MAX_PSYC_PAGES; i++){
         if((p->files_in_swap[i].isAvailable == 0) && p->files_in_swap[i].va == a){
           // p->files_in_swap[i].va = 0;
           p->files_in_swap[i].isAvailable = 1;
+          if(p->pid == 4){
+      printf("hereeeeeeee 6\n");
+    }
           p->num_of_pages--;
         }
       }
@@ -218,6 +222,9 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
         {
           // p->files_in_physicalmem[i].va = 0;
           p->files_in_physicalmem[i].isAvailable = 1;
+          if(p->pid == 4){
+      printf("hereeeeeeee 7\n");
+    }
           p->num_of_pages--;
           p->num_of_pages_in_phys--;
           //in scfifo we need to update ram array upon page removal
@@ -329,7 +336,7 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
         add_page_to_phys(p, pagetable, a); //a= va
 
       } else {
-        // printf("DEBUG uvmalloc swapping to file\n");
+        printf("DEBUG uvmalloc swapping to file.\n");
         swap_to_swapFile(p, p->pagetable);
         printf("swap finished\n");
         // printf("swapped ti swapfile\n");
@@ -355,6 +362,7 @@ uvmdealloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
 
   if(PGROUNDUP(newsz) < PGROUNDUP(oldsz)){
     int npages = (PGROUNDUP(oldsz) - PGROUNDUP(newsz)) / PGSIZE;
+    printf("calling uvmunmap. pid: %d\n", myproc()->pid);
     uvmunmap(pagetable, PGROUNDUP(newsz), npages, 1);
   }
 
@@ -408,16 +416,25 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
   for(i = 0; i < sz; i += PGSIZE){
     if((pte = walk(old, i, 0)) == 0)
       panic("uvmcopy: pte should exist");
+    //if page is invalid, check if it was pages out
     if((*pte & PTE_V) == 0) {
-      if (*pte & PTE_PG) { //TODO not sure, if yes CHANGE
-        pte_t *new_pte = walk(new, i, 1);
+      #ifndef NONE
+      //if a page is invalid and was paged out, update child's page accordingly
+      if (*pte & PTE_PG) {
+        pte_t *new_pte;
+        //map a new pte for this page in child. take care of valid and pte_pg flags accordingly
+        if((new_pte = walk(new, i, 1)) == 0) {panic("uvmcopy: can't create pte\n");}
         *new_pte |= PTE_PG;
         *new_pte &= ~PTE_V;
-        continue;
+        if((*pte & PTE_U) != 0){*new_pte |= PTE_U;}
+        // continue;
+        goto cont;
       }
+      #endif
+      //if we got here, page is invalid AND wasn't paged out
       panic("uvmcopy: page not present");
     }
-
+    cont:
     pa = PTE2PA(*pte);
     flags = PTE_FLAGS(*pte);
     if((mem = kalloc()) == 0)
@@ -446,6 +463,7 @@ uvmclear(pagetable_t pagetable, uint64 va)
   if(pte == 0)
     panic("uvmclear");
   *pte &= ~PTE_U;
+  printf("turning off PTE_U\n");
 }
 
 // Copy from kernel to user.
