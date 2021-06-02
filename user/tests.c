@@ -212,11 +212,11 @@ int main(int argc, char **argv) {
             exit(0);
         }
     }
-//    fork_test();
-//    priority_test(); 
-//    exec_test(); 
-//    alloc_dealloc_test(); 
-//    advance_alloc_dealloc_test(); 
+   fork_test();
+   priority_test();
+   exec_test();
+   alloc_dealloc_test();
+   advance_alloc_dealloc_test();
     child_test(); // fails!!!
     exit(0);
 }

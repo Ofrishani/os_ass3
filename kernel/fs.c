@@ -797,7 +797,9 @@ createSwapFile(struct proc* p)
 int
 writeToSwapFile(struct proc * p, char* buffer, uint placeOnFile, uint size)
 {
+  // printf("ofri placeOnFile %d\n", placeOnFile);
   p->swapFile->off = placeOnFile;
+  // printf("ofri test\n");
   return kfilewrite(p->swapFile, (uint64)buffer, size);
 }
 

@@ -1,5 +1,6 @@
 #define MAX_PSYC_PAGES 16
 #define MAX_TOTAL_PAGES 32
+#define MAX_SWAP_PAGES 17
 
 // Saved registers for kernel context switches.
 struct context {
@@ -135,7 +136,7 @@ struct proc {
   // #ifndef NONE
   struct file *swapFile;
   // int swapFile_offset;  //points to free space in swapFile
-  struct page_struct files_in_swap[MAX_PSYC_PAGES]; // swap file metadata. for each page in process memory, holds a page_struct
+  struct page_struct files_in_swap[MAX_SWAP_PAGES]; // swap file metadata. for each page in process memory, holds a page_struct
   struct page_struct files_in_physicalmem[MAX_PSYC_PAGES];
   int num_of_pages;   //total taken pages in proc
   int num_of_pages_in_phys;   //total taken pages in physical memory

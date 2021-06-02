@@ -94,8 +94,11 @@ walk(pagetable_t pagetable, uint64 va, int alloc)
     if(*pte & PTE_V) {
       pagetable = (pagetable_t)PTE2PA(*pte);
     } else {
-      if(!alloc || (pagetable = (pde_t*)kalloc()) == 0)
+      if(!alloc || (pagetable = (pde_t*)kalloc()) == 0){
+        printf("DEBUG, walk couldn't alloc. level: %d\n", level);
         return 0;
+
+      }
       memset(pagetable, 0, PGSIZE);
       *pte = PA2PTE(pagetable) | PTE_V; //TODO maybe add | PTE_U
     }
@@ -205,13 +208,10 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
     if((p->pagetable == pagetable) && (p->pid > 2))
     {
       //look in swap array to remove
-      for(int i = 0; i < MAX_PSYC_PAGES; i++){
+      for(int i = 0; i < MAX_SWAP_PAGES; i++){
         if((p->files_in_swap[i].isAvailable == 0) && p->files_in_swap[i].va == a){
           // p->files_in_swap[i].va = 0;
           p->files_in_swap[i].isAvailable = 1;
-          if(p->pid == 4){
-      printf("hereeeeeeee 6\n");
-    }
           p->num_of_pages--;
         }
       }
@@ -220,11 +220,8 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
       {
         if((p->files_in_physicalmem[i].isAvailable == 0) && p->files_in_physicalmem[i].va == a)
         {
-          // p->files_in_physicalmem[i].va = 0;
+          p->files_in_physicalmem[i].va = 0;
           p->files_in_physicalmem[i].isAvailable = 1;
-          if(p->pid == 4){
-      printf("hereeeeeeee 7\n");
-    }
           p->num_of_pages--;
           p->num_of_pages_in_phys--;
           //in scfifo we need to update ram array upon page removal
@@ -330,18 +327,19 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
     #ifndef NONE
     //task 1
     // printf("should not enter here\n");
-    if (p->pid > 2) {
+    if (p->pid > 2 && p->pagetable == pagetable) {
       if (p->num_of_pages_in_phys < MAX_PSYC_PAGES) {
         // printf("num_of_pages_in_phys: %d\n", p->num_of_pages_in_phys);
         add_page_to_phys(p, pagetable, a); //a= va
 
       } else {
-        printf("DEBUG uvmalloc swapping to file.\n");
+        // printf("DEBUG uvmalloc swapping to file.\n");
         swap_to_swapFile(p, p->pagetable);
-        printf("swap finished\n");
+        // printf("swap finished\n");
         // printf("swapped ti swapfile\n");
         add_page_to_phys(p, pagetable, a);
       }
+
     }
     // printf("pid: %d, counter: %d\n", p->pid, counter);
     // counter++;
@@ -362,7 +360,7 @@ uvmdealloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
 
   if(PGROUNDUP(newsz) < PGROUNDUP(oldsz)){
     int npages = (PGROUNDUP(oldsz) - PGROUNDUP(newsz)) / PGSIZE;
-    printf("calling uvmunmap. pid: %d\n", myproc()->pid);
+    // printf("calling uvmunmap. pid: %d\n", myproc()->pid);
     uvmunmap(pagetable, PGROUNDUP(newsz), npages, 1);
   }
 
@@ -426,15 +424,15 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
         if((new_pte = walk(new, i, 1)) == 0) {panic("uvmcopy: can't create pte\n");}
         *new_pte |= PTE_PG;
         *new_pte &= ~PTE_V;
-        if((*pte & PTE_U) != 0){*new_pte |= PTE_U;}
-        // continue;
-        goto cont;
+        // if((*pte & PTE_U) != 0){*new_pte |= PTE_U;}
+        continue;
+        // goto cont;
       }
       #endif
       //if we got here, page is invalid AND wasn't paged out
       panic("uvmcopy: page not present");
     }
-    cont:
+    // cont:
     pa = PTE2PA(*pte);
     flags = PTE_FLAGS(*pte);
     if((mem = kalloc()) == 0)
@@ -463,7 +461,7 @@ uvmclear(pagetable_t pagetable, uint64 va)
   if(pte == 0)
     panic("uvmclear");
   *pte &= ~PTE_U;
-  printf("turning off PTE_U\n");
+  // printf("turning off PTE_U\n");
 }
 
 // Copy from kernel to user.

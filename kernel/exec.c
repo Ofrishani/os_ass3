@@ -27,16 +27,20 @@ exec(char *path, char **argv)
   //doing exec doesn't need the memory from daddy)
   #ifndef NONE
   struct page_struct old_ram[MAX_PSYC_PAGES];
-  struct page_struct old_swap[MAX_PSYC_PAGES];
+  struct page_struct old_swap[MAX_SWAP_PAGES];
   if (p->pid > 2){
     for(int i=0; i<MAX_PSYC_PAGES; i++){
       memmove((void *)&old_ram[i], (void *)&p->files_in_physicalmem[i], sizeof(struct page_struct));
-      memmove((void *)&old_swap[i], (void *)&p->files_in_swap[i], sizeof(struct page_struct));
+      // memmove((void *)&old_swap[i], (void *)&p->files_in_swap[i], sizeof(struct page_struct));
 
       p->files_in_physicalmem[i].isAvailable = 1;
       // p->files_in_physicalmem[i].va = -1;
-      p->files_in_swap[i].isAvailable = 1;
+      // p->files_in_swap[i].isAvailable = 1;
       // p->files_in_swap[i].va = -1;
+    }
+    for(int i=0; i<MAX_SWAP_PAGES; i++){
+      memmove((void *)&old_swap[i], (void *)&p->files_in_swap[i], sizeof(struct page_struct));
+      p->files_in_swap[i].isAvailable = 1;
     }
   }
   //backup and zerofy page counters
@@ -182,6 +186,9 @@ exec(char *path, char **argv)
   //restore backed-up memory arrays
   for(int i=0; i<MAX_PSYC_PAGES; i++){
     memmove((void *)&p->files_in_physicalmem[i], (void *)&old_ram[i], sizeof(struct page_struct));
+    // memmove((void *)&p->files_in_swap[i], (void *)&old_swap[i], sizeof(struct page_struct));
+  }
+  for(int i=0; i<MAX_SWAP_PAGES; i++){
     memmove((void *)&p->files_in_swap[i], (void *)&old_swap[i], sizeof(struct page_struct));
   }
   p->num_of_pages_in_phys = backup_num_of_ram_pages;
