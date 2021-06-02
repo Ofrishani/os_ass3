@@ -42,6 +42,23 @@ void test_fork_sbrk(){
     }
 }
 
+//check that fifo works if we don't touch any of the ram pages
+int fifo_test(){
+    //allocate 16 memory pages (this will fill the ram, 3 pages are allocated beforehand)
+    printf("allocating 16 memory pages. printing memory\n");
+    char *ret = sbrk(16*PGSIZE);
+    printmem();
+    printf("reti: %c", *ret);
+    //allocate one more page. see that the page replaced is the one in ram index 0
+    ret = sbrk(1*PGSIZE);
+    printmem();
+    //allocate another page. see that the page replaced is in ram index 1
+    ret = sbrk(1*PGSIZE);
+    printmem();
+    return 1993;
+
+}
+
 
 int scfifo_test(){
   printmem();
@@ -59,7 +76,7 @@ int scfifo_test(){
 int main(int argc, char *argv[]){
     printf("hello from myprog!\n");
     // scfifo_test();
-test_fork_sbrk();
+    // test_fork_sbrk();
     // printmem();
     //allocate 13 pages and write to page 3 on offset 7 (bytes)
     // char* ptr = sbrk(13*PGSIZE) + 4*PGSIZE + 7;
@@ -68,6 +85,10 @@ test_fork_sbrk();
     // sbrk(17*PGSIZE);
 
     // printmem();
+
+
+    fifo_test();
+
     printf("after test\n");
     exit(0);
 }
