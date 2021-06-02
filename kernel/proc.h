@@ -145,6 +145,7 @@ struct proc {
   //task 2
   #ifdef SCFIFO
     int index_of_head_p;
+    int index_of_tail_p;
   #endif
   // #endif
 };

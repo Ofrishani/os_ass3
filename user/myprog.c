@@ -48,11 +48,26 @@ int fifo_test(){
     printf("allocating 16 memory pages. printing memory\n");
     char *ret = sbrk(16*PGSIZE);
     printmem();
-    printf("reti: %c", *ret);
-    //allocate one more page. see that the page replaced is the one in ram index 0
+    printf("reti: %c\n", *ret);
+    printf("allocating another page and printing\n");
+    //allocate one more page. see that the page replaced is the one in ram index 1
+    //(the one in index 0 was accessed. can uncomment line 1136 in proc.c to be sure)
     ret = sbrk(1*PGSIZE);
     printmem();
-    //allocate another page. see that the page replaced is in ram index 1
+    //allocate another page. see that the page replaced is in ram index 0
+    printf("allocating another page and printing\n");
+    ret = sbrk(1*PGSIZE);
+    printmem();
+    //now should be index 2
+    printf("allocating another page and printing\n");
+    ret = sbrk(1*PGSIZE);
+    printmem();
+    //now should be index 3
+    printf("allocating another page and printing\n");
+    ret = sbrk(1*PGSIZE);
+    printmem();
+    //4
+    printf("final page allocation and print\n");
     ret = sbrk(1*PGSIZE);
     printmem();
     return 1993;
@@ -62,20 +77,20 @@ int fifo_test(){
 
 int scfifo_test(){
   printmem();
-  //allocate 17 memory pages
-  char *ret = sbrk(20*PGSIZE);
-  // int ret = 5;
-  // sbrk(17);
-  printf("ret: %d\n", ret);
-  //print memory
+  //allocate 16 pages and write to page 4 on offset 7 (bytes)
+  char* ptr = sbrk(16*PGSIZE) + 4*PGSIZE + 7;
+    // // printmem();
+  strcpy(ptr, "hello");
+  //allocate 5 pages. page 0 is accessed beforehand, this write should swap pages
+  //1, 0, 2, 3, 5 in this order. print memory to see this happen
+  sbrk(5*PGSIZE);
   printmem();
-
   return 1;
 }
 
 int main(int argc, char *argv[]){
     printf("hello from myprog!\n");
-    // scfifo_test();
+    scfifo_test();
     // test_fork_sbrk();
     // printmem();
     //allocate 13 pages and write to page 3 on offset 7 (bytes)
@@ -87,7 +102,7 @@ int main(int argc, char *argv[]){
     // printmem();
 
 
-    fifo_test();
+    // fifo_test();
 
     printf("after test\n");
     exit(0);

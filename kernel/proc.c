@@ -344,6 +344,7 @@ fork(void)
     // #ifndef NONE
     #ifdef SCFIFO
       np->index_of_head_p = p->index_of_head_p;
+      np->index_of_tail_p = p->index_of_tail_p;
     #endif
     for (int i = 0; i<MAX_PSYC_PAGES; i++) {
       memmove((void *)&np->files_in_physicalmem[i], (void *)&p->files_in_physicalmem[i], sizeof(struct page_struct));
@@ -784,6 +785,7 @@ procdump(void)
 
   #ifdef SCFIFO
     p->index_of_head_p = -1;  //no pages in ram so no head
+    p->index_of_tail_p = -1;  //same for tail
   #endif
 }
 
@@ -793,6 +795,8 @@ procdump(void)
 int add_page_to_phys(struct proc* p, pagetable_t pagetable, uint64 va) {
 
   int index = find_free_index(p->files_in_physicalmem, 0);
+  // printf("adding page to ram and printing array\n");
+  // print_page_array(p, p->files_in_physicalmem);
 
   if (index == -1){
     panic("no free index in ram\n");
@@ -815,6 +819,8 @@ int add_page_to_phys(struct proc* p, pagetable_t pagetable, uint64 va) {
     //if this is the first page added to ram aray, initialize values accordingly
     if(p->index_of_head_p == -1){
       p->index_of_head_p = index;
+      p->index_of_tail_p = index;
+      printf("first head initialized. index: %d. va/PGSIZE: %d\n", index, va/PGSIZE);
       p->files_in_physicalmem[index].index_of_prev_p = index;
       p->files_in_physicalmem[index].index_of_next_p = index;
     }
@@ -827,6 +833,8 @@ int add_page_to_phys(struct proc* p, pagetable_t pagetable, uint64 va) {
       p->files_in_physicalmem[p->index_of_head_p].index_of_prev_p = index;
       //update prev's index_of_next to be curr (instead of head)
       p->files_in_physicalmem[p->files_in_physicalmem[index].index_of_prev_p].index_of_next_p = index;
+      //newly added page is the tail
+      p->index_of_tail_p = index;
     }
   #endif
 
@@ -852,7 +860,6 @@ int find_index_file_arr(struct proc* p, uint64 address) {
 */
 int swap_to_swapFile(struct proc* p, pagetable_t pagetable) {
   int mem_ind = calc_ndx_for_ramarr_removal(p);  //index of page to remove from ram array
-
   // printmem();
   int swap_ind = find_free_index(p->files_in_swap, 1);
   //for scfifo, update memory arrays' prevs and nexts, and ram array's head
@@ -862,6 +869,10 @@ int swap_to_swapFile(struct proc* p, pagetable_t pagetable) {
     p->files_in_physicalmem[p->files_in_physicalmem[mem_ind].index_of_next_p].index_of_prev_p = p->files_in_physicalmem[mem_ind].index_of_prev_p;
     //curr's prev's next dhould be updated to curr's next
     p->files_in_physicalmem[p->files_in_physicalmem[mem_ind].index_of_prev_p].index_of_next_p = p->files_in_physicalmem[mem_ind].index_of_next_p;
+    //if the page removed was tail, update new tail
+    if(p->index_of_tail_p == mem_ind){
+      p->index_of_tail_p = p->files_in_physicalmem[mem_ind].index_of_prev_p;
+    }
     //if the page removed was the head, update new head
     if(p->index_of_head_p == mem_ind){
       //if it's the only one in the array, head should now be -1
@@ -1047,7 +1058,6 @@ void print_page_array(struct proc* p ,struct page_struct* pagearr) {
 int calc_ndx_for_ramarr_removal(struct proc *p){
 //case regular - round robin
   int ndx = -1;
-
   #ifdef NFUA
     ndx = calc_ndx_NFUA(p);
   #endif
@@ -1130,12 +1140,21 @@ int calc_ndx_for_scfifo(struct proc *p){
   int found = 0;
   while(found != 1){
     curr_page = &ram_pages[curr_ndx];
-    //if page is not in physical memory, something's wrong
-    // if()
     //if the page was accessed, give it a second chance
     if(*(curr_page->page) & PTE_A){
+      printf("page %d was accessed\n", curr_ndx);
+      //clear bit
       *(curr_page->page) &= ~PTE_A;
       curr_ndx = curr_page->index_of_next_p;
+      //move to end of queue
+      //my prev's next is my next
+
+      //tail's next should be me
+
+      //I'm the new tail
+
+      //my next is head
+
     }
     else {
       found = 1;

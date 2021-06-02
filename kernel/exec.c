@@ -23,20 +23,22 @@ exec(char *path, char **argv)
   struct proc *p = myproc();
   //task 2
   //create backup of ram and swapfile arrays
-  //and clear the pages in arrays (we want theme cleared because the child process
+  //and clear the pages in arrays (we want them cleared because the child process
   //doing exec doesn't need the memory from daddy)
   #ifndef NONE
   struct page_struct old_ram[MAX_PSYC_PAGES];
   struct page_struct old_swap[MAX_SWAP_PAGES];
+  #ifdef SCFIFO
+  //we're freeing the ram so the head of fifo order needs to be reset
+  int old_head = p->index_of_head_p;
+  p->index_of_head_p = -1;
+  int old_tail = p->index_of_tail_p;
+  p->index_of_tail_p = -1;
+  #endif
   if (p->pid > 2){
     for(int i=0; i<MAX_PSYC_PAGES; i++){
       memmove((void *)&old_ram[i], (void *)&p->files_in_physicalmem[i], sizeof(struct page_struct));
-      // memmove((void *)&old_swap[i], (void *)&p->files_in_swap[i], sizeof(struct page_struct));
-
       p->files_in_physicalmem[i].isAvailable = 1;
-      // p->files_in_physicalmem[i].va = -1;
-      // p->files_in_swap[i].isAvailable = 1;
-      // p->files_in_swap[i].va = -1;
     }
     for(int i=0; i<MAX_SWAP_PAGES; i++){
       memmove((void *)&old_swap[i], (void *)&p->files_in_swap[i], sizeof(struct page_struct));
@@ -146,23 +148,6 @@ exec(char *path, char **argv)
     //create a fresh swapfile
     createSwapFile(p);
   }
-
-
-  // if(myproc()->pid >2)
-  // {
-  //   for (int i=0; i<MAX_PSYC_PAGES; i++)
-  //   {
-  //     //now we have 2 pagetables and they can have the same adress to 2 different pages
-  //     if(p->files_in_physicalmem[i].isAvailable==0)
-  //     {
-  //       p->files_in_physicalmem[i].pagetable = pagetable;
-  //     }
-  //     if(p->files_in_swap[i].isAvailable==0)
-  //     {
-  //       p->files_in_swap[i].pagetable = pagetable;
-  //     }
-  //   }
-  // }
   #endif
 
   // Commit to the user image.
@@ -193,6 +178,10 @@ exec(char *path, char **argv)
   }
   p->num_of_pages_in_phys = backup_num_of_ram_pages;
   p->num_of_pages = backup_num_of_pages;
+  #ifdef SCFIFO
+  p->index_of_head_p = old_head;
+  p->index_of_tail_p = old_tail;
+  #endif
   #endif
   return -1;
 }

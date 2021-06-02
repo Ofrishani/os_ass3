@@ -231,6 +231,10 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
             p->files_in_physicalmem[p->files_in_physicalmem[i].index_of_next_p].index_of_prev_p = p->files_in_physicalmem[i].index_of_prev_p;
             //curr's prev's next dhould be updated to curr's next
             p->files_in_physicalmem[p->files_in_physicalmem[i].index_of_prev_p].index_of_next_p = p->files_in_physicalmem[i].index_of_next_p;
+            //if the page removed was tail, update new tail
+            if(p->index_of_tail_p == i){
+              p->index_of_tail_p = p->files_in_physicalmem[i].index_of_prev_p;
+            }
             //if the page removed was the head, update new head
             if(p->index_of_head_p == i){
               //if it's the only one in the array, head should now be -1
