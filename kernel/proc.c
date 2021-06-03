@@ -187,10 +187,9 @@ freeproc(struct proc *p)
   p->xstate = 0;
   p->state = UNUSED;
   #ifndef NONE
-  init_meta_data(p); //TODO not sure
+  init_meta_data(p); 
   p->num_of_pages = 0;
   #endif
-  // printf("end freeproc\n");
 }
 
 // Create a user page table for a given process,
@@ -335,20 +334,17 @@ fork(void)
 
   release(&np->lock);
 
-  //TODO diff in place of ifndef
   #ifndef NONE
   //if this isn't init or shell take care of paging structs
   if(np->pid > 2){
     np->num_of_pages = p->num_of_pages;
     np->num_of_pages_in_phys = p->num_of_pages_in_phys;
-    // #ifndef NONE
     #ifdef SCFIFO
       np->index_of_head_p = p->index_of_head_p;
       np->index_of_tail_p = p->index_of_tail_p;
     #endif
     for (int i = 0; i<MAX_PSYC_PAGES; i++) {
       memmove((void *)&np->files_in_physicalmem[i], (void *)&p->files_in_physicalmem[i], sizeof(struct page_struct));
-      // memmove((void *)&np->files_in_swap[i], (void *)&p->files_in_swap[i], sizeof(struct page_struct));
     }
     for (int i = 0; i<MAX_SWAP_PAGES; i++) {
       memmove((void *)&np->files_in_swap[i], (void *)&p->files_in_swap[i], sizeof(struct page_struct));
@@ -561,7 +557,6 @@ sched(void)
 void
 yield(void)
 {
-  // printf("yield pid %d\n", myproc()->pid );
   struct proc *p = myproc();
 
   acquire(&p->lock);
@@ -724,7 +719,6 @@ procdump(void)
 }
 
  ///////////////////////// - swap functions - /////////////////////////
-// #ifndef NONE
 
 
 //returns a free index in page_struct array. which_arr==0 if it's physical memory, which_arr==1 if swapfile
@@ -754,7 +748,6 @@ procdump(void)
   p->num_of_pages = 0;
   p->num_of_pages_in_phys = 0;
   struct page_struct *pa_swap;
-  // printf("allocproc, p->pid: %d, p->files_in_swap: %d\n", p->pid, p->files_in_swap);
   for(pa_swap = p->files_in_swap; pa_swap < &p->files_in_swap[MAX_SWAP_PAGES] ; pa_swap++) {
     pa_swap->pagetable = p->pagetable;
     pa_swap->isAvailable = 1;
@@ -795,8 +788,6 @@ procdump(void)
 int add_page_to_phys(struct proc* p, pagetable_t pagetable, uint64 va) {
 
   int index = find_free_index(p->files_in_physicalmem, 0);
-  // printf("adding page to ram and printing array\n");
-  // print_page_array(p, p->files_in_physicalmem);
 
   if (index == -1){
     panic("no free index in ram\n");
@@ -810,8 +801,6 @@ int add_page_to_phys(struct proc* p, pagetable_t pagetable, uint64 va) {
 
   #ifdef NFUA
     p->files_in_physicalmem[index].counter_NFUA = 0;
-    // printf("page added to ram, ram array::\n");
-    // print_page_array(p, p->files_in_physicalmem);
   #endif
   #ifdef LAPA
     p->files_in_physicalmem[index].counter_LAPA = -1;
@@ -822,7 +811,7 @@ int add_page_to_phys(struct proc* p, pagetable_t pagetable, uint64 va) {
     if(p->index_of_head_p == -1){
       p->index_of_head_p = index;
       p->index_of_tail_p = index;
-      printf("first head initialized. index: %d. va/PGSIZE: %d\n", index, va/PGSIZE);
+      // printf("first head initialized. index: %d. va/PGSIZE: %d\n", index, va/PGSIZE);
       p->files_in_physicalmem[index].index_of_prev_p = index;
       p->files_in_physicalmem[index].index_of_next_p = index;
     }
@@ -934,8 +923,7 @@ int swap_to_swapFile(struct proc* p, pagetable_t pagetable) {
 
   #ifdef NFUA
   p->files_in_physicalmem[mem_ind].counter_NFUA = 0;
-  // printf("swapped to file, ram:\n");
-  // print_page_array(p, p->files_in_physicalmem);
+
   #endif
   #ifdef LAPA
   p->files_in_physicalmem[mem_ind].counter_LAPA = -1;
@@ -987,8 +975,7 @@ int insert_from_swap_to_ram(struct proc* p, char* buff ,uint64 va) {
     //need to maintain counter fiels value
     #ifdef NFUA
       p->files_in_physicalmem[mem_ind].counter_NFUA = 0;
-      // printf("moved from swap to ram, ram state:\n");
-      // print_page_array(p, p->files_in_physicalmem);
+
     #endif
     #ifdef LAPA
       p->files_in_physicalmem[mem_ind].counter_LAPA = -1; //0xFFFFFF
@@ -1154,7 +1141,7 @@ int calc_ndx_for_scfifo(struct proc *p){
     curr_page = &ram_pages[curr_ndx];
     //if the page was accessed, give it a second chance
     if(*(curr_page->page) & PTE_A){
-      printf("page %d was accessed\n", curr_ndx);
+      // printf("page %d was accessed\n", curr_ndx);
       //clear bit
       *(curr_page->page) &= ~PTE_A;
       int curr_ndx_copy = curr_ndx;

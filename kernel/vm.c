@@ -95,7 +95,6 @@ walk(pagetable_t pagetable, uint64 va, int alloc)
       pagetable = (pagetable_t)PTE2PA(*pte);
     } else {
       if(!alloc || (pagetable = (pde_t*)kalloc()) == 0){
-        printf("DEBUG, walk couldn't alloc. level: %d\n", level);
         return 0;
 
       }
@@ -116,22 +115,22 @@ walkaddr(pagetable_t pagetable, uint64 va)
   uint64 pa;
 
   if(va >= MAXVA){
-    printf("va >= MAXVA\n");
+    // printf("va >= MAXVA\n");
     return 0;
   }
 
   pte = walk(pagetable, va, 0);
   if(pte == 0){
-    printf("pte == 0\n");
+    // printf("pte == 0\n");
     return 0;
   }
 
   if((*pte & PTE_V) == 0){
-    printf("*pte & PTE_V\n");
+    // printf("*pte & PTE_V\n");
     return 0;
   }
   if((*pte & PTE_U) == 0){
-    printf("*pte & PTE_U. *pte: %d\n", *pte);
+    // printf("*pte & PTE_U. *pte: %d\n", *pte);
     return 0;
   }
   pa = PTE2PA(*pte);
@@ -337,7 +336,6 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
         add_page_to_phys(p, pagetable, a); //a= va
 
       } else {
-        printf("DEBUG uvmalloc swapping to file.\n");
         swap_to_swapFile(p, p->pagetable);
         // printf("swap finished\n");
         // printf("swapped ti swapfile\n");
