@@ -810,6 +810,8 @@ int add_page_to_phys(struct proc* p, pagetable_t pagetable, uint64 va) {
 
   #ifdef NFUA
     p->files_in_physicalmem[index].counter_NFUA = 0;
+    // printf("page added to ram, ram array::\n");
+    // print_page_array(p, p->files_in_physicalmem);
   #endif
   #ifdef LAPA
     p->files_in_physicalmem[index].counter_LAPA = -1;
@@ -932,6 +934,8 @@ int swap_to_swapFile(struct proc* p, pagetable_t pagetable) {
 
   #ifdef NFUA
   p->files_in_physicalmem[mem_ind].counter_NFUA = 0;
+  // printf("swapped to file, ram:\n");
+  // print_page_array(p, p->files_in_physicalmem);
   #endif
   #ifdef LAPA
   p->files_in_physicalmem[mem_ind].counter_LAPA = -1;
@@ -983,6 +987,8 @@ int insert_from_swap_to_ram(struct proc* p, char* buff ,uint64 va) {
     //need to maintain counter fiels value
     #ifdef NFUA
       p->files_in_physicalmem[mem_ind].counter_NFUA = 0;
+      // printf("moved from swap to ram, ram state:\n");
+      // print_page_array(p, p->files_in_physicalmem);
     #endif
     #ifdef LAPA
       p->files_in_physicalmem[mem_ind].counter_LAPA = -1; //0xFFFFFF
@@ -1048,8 +1054,14 @@ void hanle_page_fault(struct proc* p, uint64 va) {
 void print_page_array(struct proc* p ,struct page_struct* pagearr) {
   for (int i =0; i<MAX_PSYC_PAGES; i++) {
     struct page_struct curr = pagearr[i];
-    printf("pid: %d, index: %d, isAvailable: %d, va: %d, offset: %d, counter_NFUA:  \n",
-    p->pid, i, curr.isAvailable, curr.va/PGSIZE, curr.offset);
+    printf("pid: %d, index: %d, isAvailable: %d, va: %d, offset: %d\n",
+    p->pid, i, curr.isAvailable, curr.va, curr.offset);
+    #ifdef NFUA
+    printf("curr.counter_NFUA: %d\n", curr.counter_NFUA);
+    #endif
+    #ifdef LAPA
+    printf("curr.counter_LAPA: %d\n", curr.counter_LAPA);
+    #endif
   }
 }
 // #endif
@@ -1145,16 +1157,17 @@ int calc_ndx_for_scfifo(struct proc *p){
       printf("page %d was accessed\n", curr_ndx);
       //clear bit
       *(curr_page->page) &= ~PTE_A;
+      curr_ndx_copy = curr_ndx;
       curr_ndx = curr_page->index_of_next_p;
       //move to end of queue
       //my prev's next is my next
-
-      //tail's next should be me
-
-      //I'm the new tail
-
-      //my next is head
-
+      // ram_pages[curr_page->index_of_prev_p].index_of_next_p = curr_page->index_of_next_p;
+      // //tail's next should be me
+      // ram_pages[p->index_of_tail_p].index_of_next_p = curr_ndx_copy;
+      // //I'm the new tail
+      // p->index_of_tail_p = curr_ndx_copy;
+      // //my next is head
+      // ram_pages[curr_ndx_copy]
     }
     else {
       found = 1;

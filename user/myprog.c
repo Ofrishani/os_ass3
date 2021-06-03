@@ -88,9 +88,49 @@ int scfifo_test(){
   return 1;
 }
 
+void write_to_pages(char *ptr, int begin, int how_many, int increment){
+    for(int i = begin; i < begin+(how_many*increment); i = i+increment){
+        printf("i: %d, ptr: %d\n", i, ptr);
+        strcpy(ptr, "whatwhat");
+        ptr += i+(increment*PGSIZE);
+    }
+}
+
+int nfua_test(){
+    printf("hello fron nfua test! memory state:\n");
+    printmem();
+    //allocate 16 pages and write to pages with even numbers on offset 7 (bytes)
+    char* ptr = sbrk(16*PGSIZE) + 7;
+    uint64 ptrcpy = (uint64) ptr;
+    for(int i = 0; i < 16; i = i+2){
+        strcpy(ptr, "hello");
+        printf("ptr: %d\n", ptr);
+        ptr += 2*PGSIZE;
+    }
+    printf("written to even pages. now allocating more pages and printing memory after each allocation\n");
+    // ptr = sbrk(1*PGSIZE)+8;
+    // ptrcpy = (uint64)ptr;
+    for(int i = 0; i < 6; i++){
+        ptr = sbrk(1*PGSIZE)+8;
+        // ptrcpy = (uint64)ptr;
+        strcpy(ptr, "hellohello");
+        printf("ptr2: %d\n", ptr);
+        ptr += PGSIZE;
+        //we keep writing to pages because NFUA counter gets updated a lot
+        //and we want even pages to stay written to
+        write_to_pages((char*)ptrcpy, 0, 8, 2);
+        printf("one more page allocated and written to. memory state:\n");
+        printmem();
+    }
+    return 5003;
+}
+
 int main(int argc, char *argv[]){
     printf("hello from myprog!\n");
-    scfifo_test();
+    // scfifo_test();
+    nfua_test();
+
+
     // test_fork_sbrk();
     // printmem();
     //allocate 13 pages and write to page 3 on offset 7 (bytes)

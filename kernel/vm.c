@@ -337,7 +337,7 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
         add_page_to_phys(p, pagetable, a); //a= va
 
       } else {
-        // printf("DEBUG uvmalloc swapping to file.\n");
+        printf("DEBUG uvmalloc swapping to file.\n");
         swap_to_swapFile(p, p->pagetable);
         // printf("swap finished\n");
         // printf("swapped ti swapfile\n");
