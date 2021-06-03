@@ -9,10 +9,22 @@
 #define O_TRUNC   0x400
 #define PGSIZE 4096 // bytes per page
 
+void dealloc_test() {
+    printf("dealloc test\n");
+    if (!fork()) {
+        int *arr = (int *) (sbrk(PGSIZE * 20));
+        for (int i = 0; i < PGSIZE * 20 / sizeof(int); ++i) { arr[i] = 0; }
+        sbrk(-PGSIZE * 20);
+        printf("dealloc complete\n");
+        exit(0);
+    } else {
+        wait(0);
+    }
+}
 
-void test_fork_sbrk(){
-    printf("test test_fork_sbrk\n");
-    printf("before allocating 20 pages\n");
+void test_fork(){
+    printf("start test_fork\n");
+    printf("allocate 20 pages...\n");
     char* arr[32];
 
     for(int i = 0; i < 10; i++){
@@ -38,7 +50,7 @@ void test_fork_sbrk(){
     // father wait to son
     else{
         wait(0);
-        printf("finished test test_fork_sbrk\n\n");
+        printf("finished test test_fork\n\n");
     }
 }
 
@@ -85,6 +97,13 @@ int scfifo_test(){
   //1, 0, 2, 3, 5 in this order. print memory to see this happen
   sbrk(5*PGSIZE);
   printmem();
+  //write to page in index 9
+  ptr += 5*PGSIZE;
+  strcpy(ptr, "hello");
+  printf("written to page in index 9. allocating 5 more pages and printing memory\n");
+  sbrk(5*PGSIZE);
+
+  printmem();
   return 1;
 }
 
@@ -125,11 +144,40 @@ int nfua_test(){
     return 5003;
 }
 
+int lapa_test(){
+    printf("hello fron lapa test! memory state:\n");
+    printmem();
+    //allocate 16 pages and write to pages with even numbers on offset 7 (bytes)
+    char* ptr = sbrk(16*PGSIZE) + 7;
+    uint64 ptrcpy = (uint64) ptr;
+    for(int i = 0; i < 16; i = i+2){
+        strcpy(ptr, "hello");
+        printf("ptr: %d\n", ptr);
+        ptr += 2*PGSIZE;
+    }
+    printf("written to even pages. now allocating more pages and printing memory after each allocation\n");
+    // ptr = sbrk(1*PGSIZE)+8;
+    // ptrcpy = (uint64)ptr;
+    for(int i = 0; i < 6; i++){
+        ptr = sbrk(1*PGSIZE)+8;
+        // ptrcpy = (uint64)ptr;
+        strcpy(ptr, "hellohello");
+        printf("ptr2: %d\n", ptr);
+        ptr += PGSIZE;
+        //we keep writing to pages because NFUA counter gets updated a lot
+        //and we want even pages to stay written to
+        write_to_pages((char*)ptrcpy, 0, 8, 2);
+        printf("one more page allocated and written to. memory state:\n");
+        printmem();
+    }
+    return 5003;
+}
+
 int main(int argc, char *argv[]){
     printf("hello from myprog!\n");
-    // scfifo_test();
-    nfua_test();
-
+    scfifo_test();
+    // nfua_test();
+    // lapa_test();
 
     // test_fork_sbrk();
     // printmem();
@@ -140,7 +188,7 @@ int main(int argc, char *argv[]){
     // sbrk(17*PGSIZE);
 
     // printmem();
-
+// alloc_dealloc_test();
 
     // fifo_test();
 

@@ -1055,7 +1055,7 @@ void print_page_array(struct proc* p ,struct page_struct* pagearr) {
   for (int i =0; i<MAX_PSYC_PAGES; i++) {
     struct page_struct curr = pagearr[i];
     printf("pid: %d, index: %d, isAvailable: %d, va: %d, offset: %d\n",
-    p->pid, i, curr.isAvailable, curr.va, curr.offset);
+    p->pid, i, curr.isAvailable, curr.va/PGSIZE, curr.offset);
     #ifdef NFUA
     printf("curr.counter_NFUA: %d\n", curr.counter_NFUA);
     #endif
@@ -1157,17 +1157,17 @@ int calc_ndx_for_scfifo(struct proc *p){
       printf("page %d was accessed\n", curr_ndx);
       //clear bit
       *(curr_page->page) &= ~PTE_A;
-      curr_ndx_copy = curr_ndx;
+      int curr_ndx_copy = curr_ndx;
       curr_ndx = curr_page->index_of_next_p;
       //move to end of queue
       //my prev's next is my next
-      // ram_pages[curr_page->index_of_prev_p].index_of_next_p = curr_page->index_of_next_p;
-      // //tail's next should be me
-      // ram_pages[p->index_of_tail_p].index_of_next_p = curr_ndx_copy;
-      // //I'm the new tail
-      // p->index_of_tail_p = curr_ndx_copy;
-      // //my next is head
-      // ram_pages[curr_ndx_copy]
+      ram_pages[curr_page->index_of_prev_p].index_of_next_p = curr_page->index_of_next_p;
+      //tail's next should be me
+      ram_pages[p->index_of_tail_p].index_of_next_p = curr_ndx_copy;
+      //I'm the new tail
+      p->index_of_tail_p = curr_ndx_copy;
+      //my next is head
+      ram_pages[curr_ndx_copy].index_of_next_p = p->index_of_head_p;
     }
     else {
       found = 1;
